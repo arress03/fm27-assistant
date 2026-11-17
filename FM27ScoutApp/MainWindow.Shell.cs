@@ -25,6 +25,7 @@ namespace FM27Scout
                 var h = new WindowInteropHelper(this).Handle;
                 int on = 1;
                 DwmSetWindowAttribute(h, 20, ref on, 4);                      // mode sombre
+                UpdateSide();                                                  // club mémorisé affiché dès l'ouverture
                 ColorTitleBar();
                 Theme.Changed += ColorTitleBar;
             }

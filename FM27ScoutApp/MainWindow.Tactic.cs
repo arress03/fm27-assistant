@@ -150,7 +150,14 @@ namespace FM27Scout
             // ---- coups de pied arrêtés
             var cpa = new StackPanel();
             cpa.Children.Add(T("Coups de pied arrêtés", 15, BText, true));
-            cpa.Children.Add(new TextBlock { Text = "À régler dans FM, onglet Tactiques → Coups de pied arrêtés. Calculé sur les attributs de ton onze.", TextWrapping = TextWrapping.Wrap, Foreground = BFaint, FontSize = 12, Margin = new Thickness(0, 2, 0, 4) });
+            cpa.Children.Add(new TextBlock { Text = "Calculé sur les attributs et les pieds de ton onze. « Appliquer dans FM » règle les tireurs de corners et de coups francs directs, la technique et la zone visée des corners ; le reste se règle dans FM, onglet Tactiques → Coups de pied arrêtés.", TextWrapping = TextWrapping.Wrap, Foreground = BFaint, FontSize = 12, Margin = new Thickness(0, 2, 0, 6) });
+            if (_bridgeState == "prêt")
+            {
+                var spBtn = Btn(_spBusy ? "En cours…" : "Appliquer dans FM", async () => await ApplySetPieces(eleven.Where(x => x.r != null).Select(x => x.r).ToList()), true);
+                spBtn.IsEnabled = !_spBusy; spBtn.HorizontalAlignment = HorizontalAlignment.Left; spBtn.Margin = new Thickness(0, 0, 0, 6);
+                cpa.Children.Add(spBtn);
+            }
+            if (_spMsg != "") cpa.Children.Add(new TextBlock { Text = _spMsg, TextWrapping = TextWrapping.Wrap, Foreground = _spBad ? BMid : BGood, FontSize = 12.5, Margin = new Thickness(0, 0, 0, 6) });
             foreach (var sec in SetPieces.Build(eleven.Where(x => x.r != null).Select(x => x.r).ToList(), squad))
             {
                 cpa.Children.Add(new TextBlock { Text = sec.Title.ToUpper(), Style = (Style)FindResource("Caps"), Margin = new Thickness(0, 12, 0, 4) });
@@ -286,6 +293,23 @@ namespace FM27Scout
             box.Children.Add(new TextBlock { Text = "Tout reste modifiable dans FM : rôles, consignes individuelles, mentalité.", TextWrapping = TextWrapping.Wrap, Foreground = BFaint, FontSize = 12 });
             if (_tacMsg != "") box.Children.Add(new TextBlock { Text = _tacMsg, TextWrapping = TextWrapping.Wrap, Foreground = _tacMsgBad ? BMid : BGood, FontSize = 12.5, Margin = new Thickness(0, 8, 0, 0) });
             return box;
+        }
+
+        bool _spBusy, _spBad;
+        string _spMsg = "";
+
+        async Task ApplySetPieces(List<PlayerRow> xi)
+        {
+            _spBusy = true; _spMsg = ""; ShowTactic();
+            try
+            {
+                var done = await Task.Run(() => { var c = Bridge.Ctx(); return SetPiecesFm.Apply(c, xi, TacticFm.PersonsOf(c)); });
+                _spMsg = "Réglé dans FM : " + string.Join(" ; ", done) + ".";
+                _spBad = false;
+                Log.Info("Coups de pied arrêtés appliqués : " + string.Join(" ; ", done));
+            }
+            catch (Exception e) { _spMsg = "Impossible d'appliquer les coups de pied arrêtés : " + e.Message; _spBad = true; }
+            _spBusy = false; ShowTactic();
         }
 
         async Task ApplyToActive(Tactic.Config cfg)

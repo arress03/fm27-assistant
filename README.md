@@ -72,9 +72,10 @@ La **barre du haut** cherche n'importe quel joueur de la base (plus de 140 000).
 - **Créer cette tactique dans FM** : nouvelle tactique dans le jeu (tes autres tactiques ne sont pas touchées) avec le style,
   les formations, les rôles et les consignes de FM, puis ton meilleur onze placé poste par poste.
   **Appliquer à la tactique active** (avec confirmation) ou **Placer seulement le meilleur onze** existent aussi.
-- **Coups de pied arrêtés** : tireurs de corners (selon le pied pour les corners rentrants), cibles aériennes, technique et
-  zone visée conseillées avec les options exactes de FM27, défense en zone ou individuelle, joueurs qui restent devant,
-  tireurs de coups francs (frappe ou centre), ordre des penaltys, touches longues.
+- **Coups de pied arrêtés** : tireurs de corners et de coups francs (un classement par pied, comme dans FM), cibles aériennes,
+  technique (rentrant / sortant) et zone visée selon le jeu de tête de tes cibles, défense en zone ou individuelle, joueurs
+  qui restent devant, ordre des penaltys, touches longues. **Appliquer dans FM** règle d'un clic les tireurs de corners et de
+  coups francs directs, la technique et la zone visée des corners ; le reste est conseillé avec les options exactes de FM27.
 - **Efficacité tactique** (nouveauté de FM27) : ce qui fait monter chacune des quatre jauges et quelle fonction de l'app y aide.
 
 ### Entraînement

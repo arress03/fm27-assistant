@@ -192,8 +192,15 @@ namespace FM27Scout
             root.Children.Add(new TextBlock { Text = "dev by @arress03", Foreground = Theme.Faint, Opacity = 0.6, FontSize = 11, Margin = new Thickness(0, 14, 0, 0) });
             w.Content = root;
 
+            bool installed = false;
             go.Click += async (_, _) =>
             {
+                if (installed)
+                {
+                    try { Process.Start(new ProcessStartInfo(InstalledExe) { UseShellExecute = true }); } catch { }
+                    Application.Current.Shutdown();
+                    return;
+                }
                 string game = path.Text.Trim();
                 if (!File.Exists(Path.Combine(game, "fm.exe"))) { status.Text = "Ce dossier ne contient pas fm.exe : choisis le dossier d'installation de Football Manager 27."; status.Foreground = Brushes.Orange; return; }
                 go.IsEnabled = false; browse.IsEnabled = false;
@@ -203,8 +210,7 @@ namespace FM27Scout
                     await Task.Run(() => Install(game, desktop, m => w.Dispatcher.Invoke(() => status.Text = m)));
                     status.Foreground = Theme.Text;
                     status.Text = "Installation terminée. Au premier lancement de FM27, BepInEx prépare le jeu (1 à 2 minutes de plus que d'habitude), ensuite c'est instantané.";
-                    go.Content = "Lancer FM27 Assistant"; go.IsEnabled = true;
-                    go.Click += (_, _) => { try { Process.Start(new ProcessStartInfo(InstalledExe) { UseShellExecute = true }); } catch { } Application.Current.Shutdown(); };
+                    go.Content = "Lancer FM27 Assistant"; go.IsEnabled = true; installed = true;
                 }
                 catch (Exception ex)
                 {

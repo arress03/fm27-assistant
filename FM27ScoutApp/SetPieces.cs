@@ -39,7 +39,7 @@ namespace FM27Scout
                     .Select(r => new Pick(r, delivery(r), r == rightFooted && r == leftFooted ? "deux pieds" : r == rightFooted ? "pied droit, corners à gauche" : "pied gauche, corners à droite")).ToList()));
             sideLists.Add(("Cibles (joueurs aériens)", targets));
             res.Add(new Section("Corners offensifs",
-                aerialTeam ? "Technique : Corner rentrant · Cherche à trouver : Premier poteau ou 2ème poteau" : "Technique : Corner sortant · Cherche à trouver : Courte distance ou Limite de la surface",
+                aerialTeam ? "Technique : Corner rentrant · Cherche à trouver : 2ème poteau" : "Technique : Corner sortant · Cherche à trouver : Courte distance",
                 aerialTeam ? $"Tes cibles sont fortes de la tête (moyenne {targetAvg:F1}/20) : sers-les directement dans les 5m50."
                            : $"Tes cibles manquent de jeu aérien (moyenne {targetAvg:F1}/20) : un centre direct profite surtout à la défense adverse.",
                 sideLists));
@@ -75,6 +75,74 @@ namespace FM27Scout
                           : "Personne n'a au moins 15 en touches longues.",
                 new() { ("Ordre des tireurs de penalty", pens), ("Touches longues", throws) }));
             return res;
+        }
+    }
+
+    /// <summary>Applique dans FM (via FM27 Bridge) : tireurs de corners et de coups francs directs par pied, technique et zone visée des corners.</summary>
+    internal static class SetPiecesFm
+    {
+        const uint evRemove = 910380099, evAddLeft = 1213227378, evAddRight = 1416066355, evTechnique = 927877996, evTarget = 1249537108;
+        const uint pType = 1668375608;
+        const int kindCorner = 5, kindFreeKick = 6;
+
+        static string Pairs(Bridge.Context c) => $"825307168=93;1198877028=1;1348620377={c.Manager};1685218662={c.Team}";
+        static double A(PlayerRow r, string k) => Math.Max(0, Db.Stat(r, "Attribute" + k));
+        static string PersonRef(int person) => $"{{\"type\":\"FM.UI.PersonReference\",\"pairs\":[[825307168,28],[1198877028,1],[1685218662,{person}]]}}";
+
+        static string Entry(int kind, int list, int index, int person) => Bridge.Rec(
+            (1398883404, "SI.Core.DynamicNumber", $"\"{kind}\""), (961376122, "SI.Core.DynamicNumber", $"\"{list}\""),
+            (1883858041, "SI.Core.DynamicNumber", $"\"{index}\""), (1886157170, "FM.UI.PersonReference", PersonRef(person)));
+
+        /// <summary>Remplace les deux listes de tireurs (pied gauche, pied droit) d'un type de coup de pied arrêté.</summary>
+        static void SetTakers(Bridge.Context c, int kind, List<int> left, List<int> right)
+        {
+            string p = Pairs(c);
+            int any = left.Concat(right).First();
+            // FM retire par rang : on vide chaque liste en retirant le premier jusqu'à 8 fois (sans effet sur une liste vide)
+            for (int list = 0; list < 2; list++)
+                for (int i = 0; i < 8; i++) Bridge.Send(evRemove, "SetPieceReference", p, Entry(kind, list, 0, any));
+            string List(List<int> ps) => "[" + string.Join(",", ps.Select(x => $"[\"SI.Bindable.DynamicReference\",{Entry(kind, 2, x & 0xFFFFFF, x)}]")) + "]";
+            if (left.Count > 0) Bridge.Send(evAddLeft, "SetPieceReference", p, List(left));
+            if (right.Count > 0) Bridge.Send(evAddRight, "SetPieceReference", p, List(right));
+        }
+
+        /// <summary>Meilleurs tireurs d'un pied (si les pieds ne sont pas connus : les meilleurs tout court).</summary>
+        static List<PlayerRow> Best(IEnumerable<PlayerRow> pool, Func<PlayerRow, double> score, bool leftFoot, int n)
+        {
+            var l = pool.ToList();
+            var withFoot = l.Where(r => TacticFm.Feet.TryGetValue(r.Uid, out var f) && (leftFoot ? f.left : f.right) >= 14).ToList();
+            return (withFoot.Count > 0 ? withFoot : l).OrderByDescending(score).Take(n).ToList();
+        }
+
+        public static List<string> Apply(Bridge.Context c, List<PlayerRow> xi, Dictionary<uint, int> persons)
+        {
+            var done = new List<string>();
+            var field = xi.Where(r => r.Positions[0] < 15 && persons.ContainsKey(r.Uid)).ToList();
+            if (field.Count == 0) throw new Exception("aucun joueur de l'onze reconnu dans FM");
+            string p = Pairs(c);
+
+            // tireurs de corners
+            Func<PlayerRow, double> corner = r => A(r, "Corners") * 2 + A(r, "Technique") + A(r, "Crossing") * 0.5;
+            var cl = Best(field, corner, true, 2); var cr = Best(field, corner, false, 2);
+            SetTakers(c, kindCorner, cl.Select(r => persons[r.Uid]).ToList(), cr.Select(r => persons[r.Uid]).ToList());
+            done.Add($"corners : {string.Join(", ", cl.Select(r => r.Name))} (gauchers) · {string.Join(", ", cr.Select(r => r.Name))} (droitiers)");
+
+            // tireurs de coups francs directs
+            Func<PlayerRow, double> fk = r => A(r, "FreeKicks") * 2 + A(r, "Technique") + A(r, "LongShots") * 0.7 + A(r, "Composure") * 0.3;
+            var fl = Best(field, fk, true, 2); var fr = Best(field, fk, false, 2);
+            SetTakers(c, kindFreeKick, fl.Select(r => persons[r.Uid]).ToList(), fr.Select(r => persons[r.Uid]).ToList());
+            done.Add($"coups francs directs : {string.Join(", ", fl.Select(r => r.Name))} (gauchers) · {string.Join(", ", fr.Select(r => r.Name))} (droitiers)");
+
+            // technique et zone visée des corners offensifs, selon le jeu de tête des cibles
+            Func<PlayerRow, double> aerial = r => A(r, "Heading") * 1.2 + A(r, "JumpingReach") * 1.2 + A(r, "Strength") * 0.6 + A(r, "Bravery") * 0.5 + A(r, "Movement") * 0.5;
+            var targets = field.OrderByDescending(aerial).Take(4).ToList();
+            bool air = targets.Average(r => (A(r, "Heading") + A(r, "JumpingReach")) / 2) >= 14;
+            Bridge.WriteChannel("SetPieceReference", p, pType, Bridge.Rec((1886680684, "SI.Core.DynamicNumber", "\"0\""), (1903577654, "System.String", Bridge.Q("Corners"))));
+            System.Threading.Thread.Sleep(500);
+            Bridge.Send(evTechnique, "SetPieceReference", p, Bridge.Num(air ? 0 : 1));
+            Bridge.Send(evTarget, "SetPieceReference", p, Bridge.Rec((1903577654, "System.String", Bridge.Q(air ? "2ème poteau" : "Courte distance")), (1886680684, "SI.Core.DynamicNumber", air ? "\"3\"" : "\"1\"")));
+            done.Add(air ? "corners : rentrants vers le 2ème poteau" : "corners : sortants en courte distance");
+            return done;
         }
     }
 }
