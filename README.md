@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo.png" width="180" alt="FM27 Assistant"></p>
+
 # FM27 Assistant
 
 **L'assistant de Football Manager 27 : stats cachées, recrutement, tactique optimisée et entraînement réglé en un clic.**

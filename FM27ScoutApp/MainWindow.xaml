@@ -1,7 +1,7 @@
 <Window x:Class="FM27Scout.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="FM27 Assistant" Width="1600" Height="940" MinWidth="1150" MinHeight="680"
+        Title="FM27 Assistant" Icon="pack://application:,,,/app.ico" Width="1600" Height="940" MinWidth="1150" MinHeight="680"
         Background="{DynamicResource Bg}" WindowStartupLocation="CenterScreen" FontFamily="{StaticResource UiFont}" Foreground="{DynamicResource Text}">
   <Grid>
   <Grid Background="{DynamicResource Backdrop}">
@@ -19,7 +19,10 @@
       <DockPanel>
         <!-- identité : app + club géré -->
         <StackPanel DockPanel.Dock="Top" Margin="20,22,16,18">
-          <TextBlock Text="FM27 Assistant" FontFamily="{StaticResource DisplayFont}" FontSize="19" FontWeight="SemiBold"/>
+          <DockPanel>
+            <Image Source="pack://application:,,,/logo.png" Width="34" Height="34" Margin="0,0,10,0" RenderOptions.BitmapScalingMode="HighQuality"/>
+            <TextBlock Text="FM27 Assistant" FontFamily="{StaticResource DisplayFont}" FontSize="19" FontWeight="SemiBold" VerticalAlignment="Center"/>
+          </DockPanel>
           <DockPanel Margin="0,12,0,0">
             <Image x:Name="SideClubLogo" Width="26" Height="26" Margin="0,0,10,0" Visibility="Collapsed" RenderOptions.BitmapScalingMode="HighQuality"/>
             <TextBlock x:Name="SideClubName" Text="Aucun club" Foreground="{DynamicResource Dim}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>

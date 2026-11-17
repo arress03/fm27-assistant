@@ -165,8 +165,12 @@ namespace FM27Scout
                 Title = AppName + " — installation", Width = 560, SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize,
                 WindowStartupLocation = WindowStartupLocation.CenterScreen, Background = Theme.Bg, Foreground = Theme.Text,
             };
+            try { w.Icon = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/app.ico")); } catch { }
             var root = new StackPanel { Margin = new Thickness(28) };
-            root.Children.Add(new TextBlock { Text = AppName, FontSize = 26, FontWeight = FontWeights.SemiBold, Foreground = Theme.Text });
+            var title = new DockPanel();
+            title.Children.Add(new Image { Source = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/logo.png")), Width = 56, Height = 56, Margin = new Thickness(0, 0, 14, 0) });
+            title.Children.Add(new TextBlock { Text = AppName, FontSize = 26, FontWeight = FontWeights.SemiBold, Foreground = Theme.Text, VerticalAlignment = VerticalAlignment.Center });
+            root.Children.Add(title);
             root.Children.Add(new TextBlock { Text = "Installe l'application et le module FM27 Bridge (BepInEx) dans Football Manager 27.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Dim, Margin = new Thickness(0, 6, 0, 18) });
 
             root.Children.Add(new TextBlock { Text = "DOSSIER DE FOOTBALL MANAGER 27", FontSize = 11, FontWeight = FontWeights.SemiBold, Foreground = Theme.Faint });
