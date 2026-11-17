@@ -2,7 +2,7 @@ bin/
 obj/
 *.user
 .vs/
-FM27ScoutApp/payload/
+
 build.log
 build.status
 rebuild.flag

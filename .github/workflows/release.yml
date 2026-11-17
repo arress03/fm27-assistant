@@ -1,0 +1,46 @@
+name: Release
+
+# À chaque push sur main : compile FM27 Assistant (Windows) et publie la release de la version
+# indiquée dans FM27ScoutApp/FM27ScoutApp.csproj (<Version>), si elle n'existe pas encore.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Version
+        id: v
+        shell: pwsh
+        run: |
+          [xml]$p = Get-Content FM27ScoutApp/FM27ScoutApp.csproj
+          $ver = ($p.Project.PropertyGroup | Where-Object { $_.Version } | Select-Object -First 1).Version
+          "version=$ver" >> $env:GITHUB_OUTPUT
+          $exists = gh release view "v$ver" 2>$null; if ($LASTEXITCODE -eq 0) { "exists=true" >> $env:GITHUB_OUTPUT } else { "exists=false" >> $env:GITHUB_OUTPUT }
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compiler
+        if: steps.v.outputs.exists == 'false'
+        shell: pwsh
+        run: |
+          dotnet publish FM27ScoutApp -c Release -p:BuildBridgeAfterPublish=false
+          Copy-Item FM27ScoutApp/bin/Release/net8.0-windows/win-x64/publish/FM27Scout.exe FM27-Assistant-Setup.exe
+
+      - name: Publier la release
+        if: steps.v.outputs.exists == 'false'
+        shell: pwsh
+        run: gh release create "v${{ steps.v.outputs.version }}" FM27-Assistant-Setup.exe --title "FM27 Assistant ${{ steps.v.outputs.version }}" --notes-file .github/RELEASE_NOTES.md --target main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

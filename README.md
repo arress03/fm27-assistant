@@ -125,13 +125,16 @@ Prérequis : Windows, [.NET 8 SDK](https://dotnet.microsoft.com/download), FM27 
 # module du jeu (le chemin du jeu peut être passé avec -p:GamePath=...)
 dotnet build FM27Bridge -c Release
 
-# contenu de l'installeur (BepInEx + FM27 Bridge), puis l'application
-python scripts/make-payload.py "D:\Program Files (x86)\Steam\steamapps\common\Football Manager 27"
+# l'application (FM27ScoutApp/payload/bepinex.zip contient BepInEx + FM27 Bridge pour l'installeur ;
+# après une modification du module, le régénérer avec scripts/make-payload.py "<dossier du jeu>")
 dotnet publish FM27ScoutApp -c Release
 ```
 
 L'exe produit (`FM27ScoutApp\bin\Release\net8.0-windows\win-x64\publish\FM27Scout.exe`) est l'application ;
 renommé en `FM27-Assistant-Setup.exe` (ou lancé avec `--install`), il devient l'installeur.
+
+Chaque push sur `main` compile l'installeur avec GitHub Actions et publie la release de la version indiquée
+dans `FM27ScoutApp.csproj` (`<Version>`) si elle n'existe pas encore.
 
 ## Licence
 

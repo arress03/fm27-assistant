@@ -1,6 +1,6 @@
 # Composants tiers
 
-L'installeur (`FM27-Assistant-Setup.exe`) contient et installe dans le dossier du jeu :
+L'installeur (`FM27-Assistant-Setup.exe`, et `FM27ScoutApp/payload/bepinex.zip` dans ce dépôt) contient et installe dans le dossier du jeu :
 
 | Composant | Licence | Source |
 |---|---|---|

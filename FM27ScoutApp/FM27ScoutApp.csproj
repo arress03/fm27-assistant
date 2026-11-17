@@ -33,7 +33,7 @@
 
   <!-- Module FM27 Bridge (dans le jeu, via BepInEx) : compilé et copié dans BepInEx\plugins à chaque publication.
        Pris en compte au prochain lancement de FM. Une erreur ici n'empêche pas l'app de se compiler. -->
-  <Target Name="BuildBridge" AfterTargets="Publish" Condition="Exists('$(MSBuildProjectDirectory)\..\FM27Bridge\FM27Bridge.csproj')">
+  <Target Name="BuildBridge" AfterTargets="Publish" Condition="'$(BuildBridgeAfterPublish)' != 'false' And Exists('$(MSBuildProjectDirectory)\..\FM27Bridge\FM27Bridge.csproj')">
     <Exec Command="dotnet build &quot;$(MSBuildProjectDirectory)\..\FM27Bridge\FM27Bridge.csproj&quot; -c Release &gt; &quot;$(MSBuildProjectDirectory)\..\FM27Bridge\build.log&quot; 2&gt;&amp;1" ContinueOnError="true" />
   </Target>
 
