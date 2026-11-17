@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>FM27Bridge</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GamePath Condition="'$(GamePath)' == ''">D:\Program Files (x86)\Steam\steamapps\common\Football Manager 27</GamePath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="$(GamePath)\BepInEx\core\*.dll" Private="false" />
+    <Reference Include="$(GamePath)\BepInEx\interop\*.dll" Private="false" />
+  </ItemGroup>
+  <Target Name="CopyToGame" AfterTargets="Build">
+    <MakeDir Directories="$(GamePath)\BepInEx\plugins\FM27Bridge" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GamePath)\BepInEx\plugins\FM27Bridge" />
+  </Target>
+</Project>

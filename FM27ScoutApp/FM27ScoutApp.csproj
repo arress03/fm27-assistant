@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>FM27Scout</AssemblyName>
+    <RootNamespace>FM27Scout</RootNamespace>
+    <Version>3.0.0</Version>
+    <Product>FM27 Assistant</Product>
+    <AssemblyTitle>FM27 Assistant</AssemblyTitle>
+    <!-- exe unique, autonome (pas besoin d'installer .NET pour le lancer) -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <!-- anciens modules retirés de l'app (draft, calibrage mémoire) -->
+  <ItemGroup>
+    <Compile Remove="payload\**" />
+  </ItemGroup>
+
+  <!-- contenu de l'installation : BepInEx (LGPL-2.1) + FM27 Bridge, extrait dans le dossier du jeu par « …Setup.exe » -->
+  <ItemGroup Condition="Exists('payload\bepinex.zip')">
+    <EmbeddedResource Include="payload\bepinex.zip" LogicalName="bepinex.zip" />
+  </ItemGroup>
+
+  <!-- Module FM27 Bridge (dans le jeu, via BepInEx) : compilé et copié dans BepInEx\plugins à chaque publication.
+       Pris en compte au prochain lancement de FM. Une erreur ici n'empêche pas l'app de se compiler. -->
+  <Target Name="BuildBridge" AfterTargets="Publish" Condition="Exists('$(MSBuildProjectDirectory)\..\FM27Bridge\FM27Bridge.csproj')">
+    <Exec Command="dotnet build &quot;$(MSBuildProjectDirectory)\..\FM27Bridge\FM27Bridge.csproj&quot; -c Release &gt; &quot;$(MSBuildProjectDirectory)\..\FM27Bridge\build.log&quot; 2&gt;&amp;1" ContinueOnError="true" />
+  </Target>
+
+</Project>

@@ -1,0 +1,311 @@
+<Window x:Class="FM27Scout.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="FM27 Assistant" Width="1600" Height="940" MinWidth="1150" MinHeight="680"
+        Background="{DynamicResource Bg}" WindowStartupLocation="CenterScreen" FontFamily="{StaticResource UiFont}" Foreground="{DynamicResource Text}">
+  <Grid>
+  <Grid Background="{DynamicResource Backdrop}">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+    </Grid.RowDefinitions>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="236"/>
+      <ColumnDefinition Width="*"/>
+    </Grid.ColumnDefinitions>
+
+    <!-- ===================== barre latérale ===================== -->
+    <Border Grid.RowSpan="2" Background="{DynamicResource Panel}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">
+      <DockPanel>
+        <!-- identité : app + club géré -->
+        <StackPanel DockPanel.Dock="Top" Margin="20,22,16,18">
+          <TextBlock Text="FM27 Assistant" FontFamily="{StaticResource DisplayFont}" FontSize="19" FontWeight="SemiBold"/>
+          <DockPanel Margin="0,12,0,0">
+            <Image x:Name="SideClubLogo" Width="26" Height="26" Margin="0,0,10,0" Visibility="Collapsed" RenderOptions.BitmapScalingMode="HighQuality"/>
+            <TextBlock x:Name="SideClubName" Text="Aucun club" Foreground="{DynamicResource Dim}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+          </DockPanel>
+        </StackPanel>
+
+        <!-- signature -->
+        <TextBlock DockPanel.Dock="Bottom" Text="dev by @arress03" Foreground="{DynamicResource Faint}" Opacity="0.55" FontSize="11" Margin="20,8,0,14"/>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel>
+            <TextBlock Text="MON CLUB" Style="{StaticResource Caps}" Margin="22,4,0,8"/>
+            <ToggleButton x:Name="NavClub" Style="{StaticResource Nav}" Click="Nav_Click">
+              <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE716;"/><TextBlock Text="Effectif" Margin="12,0,0,0"/></StackPanel>
+            </ToggleButton>
+            <ToggleButton x:Name="NavTactic" Style="{StaticResource Nav}" Click="Nav_Click">
+              <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE809;"/><TextBlock Text="Tactique" Margin="12,0,0,0"/></StackPanel>
+            </ToggleButton>
+            <ToggleButton x:Name="NavTrain" Style="{StaticResource Nav}" Click="Nav_Click">
+              <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE805;"/><TextBlock Text="Entraînement" Margin="12,0,0,0"/></StackPanel>
+            </ToggleButton>
+            <ToggleButton x:Name="NavDressing" Style="{StaticResource Nav}" Click="Nav_Click">
+              <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE8D7;"/><TextBlock Text="Vestiaire" Margin="12,0,0,0"/></StackPanel>
+            </ToggleButton>
+
+            <TextBlock Text="RECRUTEMENT" Style="{StaticResource Caps}" Margin="22,18,0,8"/>
+            <ToggleButton x:Name="NavSearch" Style="{StaticResource Nav}" Click="Nav_Click">
+              <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE721;"/><TextBlock Text="Recherches" Margin="12,0,0,0"/></StackPanel>
+            </ToggleButton>
+            <ToggleButton x:Name="NavRadar" Style="{StaticResource Nav}" Click="Nav_Click">
+              <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE7B3;"/><TextBlock Text="Radar de scouting" Margin="12,0,0,0"/></StackPanel>
+            </ToggleButton>
+            <ToggleButton x:Name="NavDeals" Style="{StaticResource Nav}" Click="Nav_Click">
+              <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE8C7;"/><TextBlock Text="Bonnes affaires" Margin="12,0,0,0"/></StackPanel>
+            </ToggleButton>
+            <ToggleButton x:Name="NavShort" Style="{StaticResource Nav}" Click="Nav_Click">
+              <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE734;"/><TextBlock x:Name="NavShortLabel" Text="Shortlist" Margin="12,0,0,0"/></StackPanel>
+            </ToggleButton>
+            <ToggleButton x:Name="NavAlerts" Style="{StaticResource Nav}" Click="Nav_Click">
+              <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE7BA;"/><TextBlock Text="Alertes d'effectif" Margin="12,0,0,0"/></StackPanel>
+            </ToggleButton>
+            <ToggleButton x:Name="NavCompare" Style="{StaticResource Nav}" Click="Nav_Click">
+              <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE8F1;"/><TextBlock Text="Comparateur" Margin="12,0,0,0"/></StackPanel>
+            </ToggleButton>
+            <ToggleButton x:Name="NavPlayer" Style="{StaticResource Nav}" Click="Nav_Click">
+              <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE77B;"/><TextBlock Text="Fiche joueur" Margin="12,0,0,0"/></StackPanel>
+            </ToggleButton>
+
+            <Border x:Name="RadarBadge" Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource Accent}" BorderThickness="1" CornerRadius="8" Margin="12,14,12,0" Padding="12,9" Visibility="Collapsed">
+              <TextBlock x:Name="RadarBadgeText" TextWrapping="Wrap" FontSize="12"/>
+            </Border>
+
+            <TextBlock Text="AFFICHAGE" Style="{StaticResource Caps}" Margin="22,20,0,8"/>
+            <WrapPanel x:Name="GenderToggles" Margin="14,0,10,0"/>
+            <TextBlock Text="Colonnes des tableaux" Style="{StaticResource Small}" Margin="22,10,0,6"/>
+            <WrapPanel x:Name="ColToggles" Margin="14,0,10,0"/>
+            <Button Style="{StaticResource Ghost}" Content="Revoir le guide" HorizontalAlignment="Left" Margin="12,10,0,0" Click="GuideAgain_Click"/>
+          </StackPanel>
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+
+    <!-- ===================== barre du haut ===================== -->
+    <Border Grid.Column="1" Background="{DynamicResource HeaderGrad}" Padding="22,14,22,12">
+      <DockPanel LastChildFill="False">
+        <Grid DockPanel.Dock="Left" Width="400">
+          <TextBox x:Name="TopSearch" TextChanged="TopSearch_TextChanged" KeyDown="TopSearch_KeyDown" VerticalAlignment="Center" Padding="34,8,10,8"/>
+          <TextBlock Style="{StaticResource Icon}" Text="&#xE721;" FontSize="13" Foreground="{DynamicResource Faint}" Margin="13,0,0,0" HorizontalAlignment="Left" IsHitTestVisible="False"/>
+          <TextBlock Text="Rechercher un joueur dans toute la base" IsHitTestVisible="False" Margin="36,0,0,0" VerticalAlignment="Center"
+                     Foreground="{DynamicResource Faint}" x:Name="TopSearchHint"/>
+          <Popup x:Name="TopPopup" PlacementTarget="{Binding ElementName=TopSearch}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" Width="540" VerticalOffset="6">
+            <Border Background="{DynamicResource Panel2}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="10" Padding="6" MaxHeight="520">
+              <ListBox x:Name="TopResults" SelectionChanged="TopResults_SelectionChanged" ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+            </Border>
+          </Popup>
+        </Grid>
+
+        <Border DockPanel.Dock="Left" Margin="16,0,0,0" Background="{DynamicResource Panel}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="16" Padding="12,6" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal">
+            <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="#E05050" Margin="0,0,8,0" VerticalAlignment="Center"/>
+            <TextBlock x:Name="StatusText" Text="Recherche de FM27" VerticalAlignment="Center" MaxWidth="420" TextTrimming="CharacterEllipsis" FontSize="12.5" Foreground="{DynamicResource Dim}"/>
+          </StackPanel>
+        </Border>
+
+        <Button x:Name="ReadBtn" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="Relire la base" Margin="10,0,0,0" Click="ReadBtn_Click"/>
+        <CheckBox x:Name="AutoRefresh" DockPanel.Dock="Right" Content="Relecture auto" IsChecked="True" Foreground="{DynamicResource Dim}" VerticalAlignment="Center" Margin="14,0,4,0" ToolTip="Relit la base toutes les 5 minutes"/>
+        <Button DockPanel.Dock="Right" Content="Auto" Margin="6,0,0,0" Click="DateAuto_Click" ToolTip="Revenir à la date estimée automatiquement"/>
+        <Button DockPanel.Dock="Right" Content="OK" Margin="6,0,0,0" Click="DateOk_Click"/>
+        <TextBox x:Name="DateBox" DockPanel.Dock="Right" Width="112" VerticalAlignment="Center" ToolTip="Date de jeu (jj/mm/aaaa) : sert à calculer l'âge et les fins de contrat"/>
+        <TextBlock x:Name="DateLabel" DockPanel.Dock="Right" Text="Date de jeu" Style="{StaticResource Small}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+        <ProgressBar x:Name="Progress" DockPanel.Dock="Right" Width="160" Height="4" Margin="0,0,16,0" Visibility="Collapsed"
+                     Foreground="{DynamicResource Accent}" Background="{DynamicResource Panel2}" BorderThickness="0" Maximum="1"/>
+      </DockPanel>
+    </Border>
+
+    <!-- ===================== pages ===================== -->
+    <Grid Grid.Row="1" Grid.Column="1" Margin="22,10,22,16">
+
+      <!-- MON CLUB -->
+      <DockPanel x:Name="PageClub">
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+          <Button DockPanel.Dock="Right" Content="Exporter (CSV)" Click="ExportClub_Click"/>
+          <Button DockPanel.Dock="Right" Content="Changer de club" Click="ChangeClub_Click"/>
+          <Image x:Name="ClubLogo" Width="40" Height="40" Margin="0,0,10,0" Visibility="Collapsed"/>
+          <TextBlock x:Name="ClubTitle" Style="{StaticResource H1}" VerticalAlignment="Center"/>
+        </DockPanel>
+        <WrapPanel x:Name="ClubInfo" DockPanel.Dock="Top" Margin="0,0,0,8"/>
+        <WrapPanel x:Name="TeamChips" DockPanel.Dock="Top" Margin="0,0,0,6"/>
+        <Grid>
+          <DataGrid x:Name="ClubGrid" MouseDoubleClick="Grid_DoubleClick"/>
+          <DockPanel x:Name="ClubPicker" Visibility="Collapsed" Background="{DynamicResource Bg}">
+            <TextBlock DockPanel.Dock="Top" Text="Choisis ton club" Style="{StaticResource H2}" Margin="0,0,0,6"/>
+            <TextBox x:Name="MyClubSearch" DockPanel.Dock="Top" Width="360" HorizontalAlignment="Left" TextChanged="MyClubSearch_TextChanged"/>
+            <ListBox x:Name="MyClubList" Margin="0,8,0,0" Width="360" HorizontalAlignment="Left" SelectionChanged="MyClubList_SelectionChanged"/>
+          </DockPanel>
+        </Grid>
+      </DockPanel>
+
+      <!-- FICHE JOUEUR -->
+      <ScrollViewer x:Name="PagePlayer" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+        <StackPanel x:Name="PlayerCard"/>
+      </ScrollViewer>
+
+      <!-- RECHERCHES -->
+      <Grid x:Name="PageSearch" Visibility="Collapsed">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="290"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <DockPanel Margin="0,0,16,0">
+          <TextBlock DockPanel.Dock="Top" Text="Recherches" Style="{StaticResource H2}" Margin="0,0,0,6"/>
+          <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Small}" TextWrapping="Wrap" Margin="0,8,0,0"
+                     Text="Modifiables dans %APPDATA%\FM27Scout\recherches.json"/>
+          <Button DockPanel.Dock="Bottom" Content="Recharger les recherches" Click="ReloadSearches_Click" HorizontalAlignment="Left"/>
+          <ListBox x:Name="SearchList" SelectionChanged="SearchList_SelectionChanged"/>
+        </DockPanel>
+        <DockPanel Grid.Column="1">
+          <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <Button DockPanel.Dock="Right" Content="Exporter (CSV)" Click="ExportSearch_Click"/>
+            <TextBlock x:Name="SearchInfo" Style="{StaticResource H2}" Margin="0"/>
+          </DockPanel>
+          <DataGrid x:Name="SearchGrid" MouseDoubleClick="Grid_DoubleClick"/>
+        </DockPanel>
+      </Grid>
+
+      <!-- RADAR -->
+      <Grid x:Name="PageRadar" Visibility="Collapsed">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="370"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,0,16,0">
+          <StackPanel x:Name="RadarFilters"/>
+        </ScrollViewer>
+        <DockPanel Grid.Column="1">
+          <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+            <Button DockPanel.Dock="Right" Content="Exporter (CSV)" Click="ExportRadar_Click"/>
+            <Button DockPanel.Dock="Right" Content="Marquer tout comme vu" Click="RadarSeen_Click"/>
+            <TextBlock x:Name="RadarInfo" Style="{StaticResource H2}" Margin="0"/>
+          </DockPanel>
+          <WrapPanel x:Name="SortChips" DockPanel.Dock="Top" Margin="0,0,0,6"/>
+          <DataGrid x:Name="RadarGrid" MouseDoubleClick="Grid_DoubleClick"/>
+        </DockPanel>
+      </Grid>
+
+      <!-- ALERTES -->
+      <Grid x:Name="PageAlerts" Visibility="Collapsed">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="290"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <DockPanel Margin="0,0,16,0">
+          <TextBlock DockPanel.Dock="Top" Text="Club à analyser" Style="{StaticResource H2}" Margin="0,0,0,6"/>
+          <TextBox x:Name="ClubSearch" DockPanel.Dock="Top" TextChanged="ClubSearch_TextChanged"/>
+          <ListBox x:Name="ClubList" Margin="0,8,0,0" SelectionChanged="ClubList_SelectionChanged"/>
+        </DockPanel>
+        <DockPanel Grid.Column="1">
+          <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+            <TextBlock x:Name="AlertInfo" Style="{StaticResource H2}" Margin="0"/>
+          </DockPanel>
+          <WrapPanel x:Name="AlertChips" DockPanel.Dock="Top" Margin="0,0,0,6"/>
+          <DataGrid x:Name="AlertGrid" MouseDoubleClick="Grid_DoubleClick"/>
+        </DockPanel>
+      </Grid>
+
+      <!-- COMPARATEUR : choix à gauche, choix à droite, comparaison au milieu -->
+      <Grid x:Name="PageCompare" Visibility="Collapsed">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="280"/><ColumnDefinition Width="*"/><ColumnDefinition Width="280"/>
+        </Grid.ColumnDefinitions>
+        <DockPanel Margin="0,0,14,0">
+          <TextBlock DockPanel.Dock="Top" Text="Joueur A" Style="{StaticResource H2}" Margin="0,0,0,6"/>
+          <TextBox x:Name="CmpSearchA" DockPanel.Dock="Top" TextChanged="CmpSearch_TextChanged"/>
+          <TextBlock x:Name="CmpInfoA" DockPanel.Dock="Top" Style="{StaticResource Small}" Margin="0,6,0,4"/>
+          <ListBox x:Name="CmpListA" SelectionChanged="CmpList_SelectionChanged" ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+        </DockPanel>
+        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+          <StackPanel x:Name="CompareBox"/>
+        </ScrollViewer>
+        <DockPanel Grid.Column="2" Margin="14,0,0,0">
+          <TextBlock DockPanel.Dock="Top" Text="Joueur B" Style="{StaticResource H2}" Margin="0,0,0,6"/>
+          <TextBox x:Name="CmpSearchB" DockPanel.Dock="Top" TextChanged="CmpSearch_TextChanged"/>
+          <TextBlock x:Name="CmpInfoB" DockPanel.Dock="Top" Style="{StaticResource Small}" Margin="0,6,0,4"/>
+          <ListBox x:Name="CmpListB" SelectionChanged="CmpList_SelectionChanged" ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+        </DockPanel>
+      </Grid>
+
+      <!-- SHORTLIST -->
+      <DockPanel x:Name="PageShort" Visibility="Collapsed">
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+          <Button DockPanel.Dock="Right" Content="Exporter (CSV)" Click="ExportShort_Click"/>
+          <Button DockPanel.Dock="Right" Content="Tout marquer comme vu" Click="ShortSeen_Click"
+                  ToolTip="Les changements (valeur, club, CA) repartent de l'état actuel"/>
+          <TextBlock Text="Shortlist" Style="{StaticResource H1}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+          <TextBlock x:Name="ShortInfo" Style="{StaticResource Small}" VerticalAlignment="Center"/>
+        </DockPanel>
+        <DataGrid x:Name="ShortGrid" MouseDoubleClick="Grid_DoubleClick"/>
+      </DockPanel>
+
+      <!-- BONNES AFFAIRES -->
+      <DockPanel x:Name="PageDeals" Visibility="Collapsed">
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+          <Button DockPanel.Dock="Right" Content="Exporter (CSV)" Click="ExportDeals_Click"/>
+          <TextBlock Text="Bonnes affaires" Style="{StaticResource H1}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+          <TextBlock x:Name="DealInfo" Style="{StaticResource Small}" VerticalAlignment="Center"/>
+        </DockPanel>
+        <WrapPanel x:Name="DealChips" DockPanel.Dock="Top" Margin="0,0,0,6"/>
+        <DataGrid x:Name="DealGrid" MouseDoubleClick="Grid_DoubleClick"/>
+      </DockPanel>
+
+      <!-- TACTIQUE : onze, formation, style, consignes ; création dans FM -->
+      <DockPanel x:Name="PageTactic" Visibility="Collapsed">
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+          <TextBlock Text="Tactique" Style="{StaticResource H1}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+          <TextBlock x:Name="TacticInfo" Style="{StaticResource Small}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+        </DockPanel>
+        <StackPanel x:Name="TacticTop" DockPanel.Dock="Top" Margin="0,0,0,8"/>
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition Width="5*"/><ColumnDefinition Width="4*"/></Grid.ColumnDefinitions>
+          <Viewbox Stretch="Uniform" VerticalAlignment="Top">
+            <Canvas x:Name="TacticPitch" Width="700" Height="900"/>
+          </Viewbox>
+          <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="18,0,0,0">
+            <StackPanel x:Name="TacticSide"/>
+          </ScrollViewer>
+        </Grid>
+      </DockPanel>
+
+      <!-- VESTIAIRE : stats cachées de l'effectif -->
+      <DockPanel x:Name="PageDressing" Visibility="Collapsed">
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+          <TextBlock Text="Vestiaire" Style="{StaticResource H1}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+          <TextBlock x:Name="DressInfo" Style="{StaticResource Small}" VerticalAlignment="Center"/>
+        </DockPanel>
+        <WrapPanel x:Name="DressChips" DockPanel.Dock="Top" Margin="0,0,0,6"/>
+        <DataGrid x:Name="DressGrid" MouseDoubleClick="Grid_DoubleClick"/>
+      </DockPanel>
+
+      <!-- ENTRAÎNEMENT -->
+      <DockPanel x:Name="PageTrain" Visibility="Collapsed">
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+          <TextBlock Text="Entraînement" Style="{StaticResource H1}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+          <TextBlock x:Name="TrainInfo" Style="{StaticResource Small}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+        </DockPanel>
+        <WrapPanel x:Name="TrainChips" DockPanel.Dock="Top" Margin="0,0,0,8"/>
+        <Grid>
+          <ScrollViewer x:Name="TrainScroll" VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="TrainBox"/>
+          </ScrollViewer>
+          <DataGrid x:Name="TrainGrid" MouseDoubleClick="Grid_DoubleClick" Visibility="Collapsed"/>
+        </Grid>
+      </DockPanel>
+
+    </Grid>
+  </Grid>
+
+  <!-- ===================== guide (premier lancement, puis à l'ouverture de chaque page) ===================== -->
+  <Grid x:Name="GuideLayer" Visibility="Collapsed" Background="#B3000000">
+    <Border Width="560" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource Panel}" BorderBrush="{DynamicResource Line}"
+            BorderThickness="1" CornerRadius="14" Padding="0">
+      <StackPanel>
+        <Border Height="4" Background="{DynamicResource Accent}" CornerRadius="14,14,0,0"/>
+        <StackPanel Margin="28,22,28,22">
+          <TextBlock x:Name="GuideStep" Style="{StaticResource Caps}" Margin="0,0,0,6"/>
+          <TextBlock x:Name="GuideTitle" FontFamily="{StaticResource DisplayFont}" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap"/>
+          <TextBlock x:Name="GuideText" Foreground="{DynamicResource Dim}" FontSize="13.5" TextWrapping="Wrap" Margin="0,10,0,0" LineHeight="21"/>
+          <StackPanel x:Name="GuidePoints" Margin="0,12,0,0"/>
+          <DockPanel Margin="0,20,0,0" LastChildFill="False">
+            <CheckBox x:Name="GuideMute" DockPanel.Dock="Left" Content="Ne plus afficher les conseils" Foreground="{DynamicResource Dim}" VerticalAlignment="Center"/>
+            <Button x:Name="GuideNext" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="Compris" Margin="8,0,0,0" Click="GuideNext_Click"/>
+            <Button x:Name="GuideSkip" DockPanel.Dock="Right" Content="Passer" Margin="0" Click="GuideSkip_Click"/>
+          </DockPanel>
+        </StackPanel>
+      </StackPanel>
+    </Border>
+  </Grid>
+  </Grid>
+</Window>
