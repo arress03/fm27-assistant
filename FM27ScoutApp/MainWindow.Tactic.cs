@@ -231,19 +231,31 @@ namespace FM27Scout
 
         UIElement TacticApplyPanel(Tactic.Config cfg)
         {
-            CheckBridge();
-            if (_bridgeState == null && !_tacRetry)
+            if (_bridgeState != "prêt" && !_tacRetry)
             {
+                // vérifie le module directement (indépendant des autres pages), puis redessine
                 _tacRetry = true;
-                var t = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
-                t.Tick += (_, _) => { t.Stop(); _tacRetry = false; if (PageTactic.Visibility == Visibility.Visible) ShowTactic(); };
-                t.Start();
+                Task.Run(() =>
+                {
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    string r;
+                    try { r = Bridge.Status() ?? "absent"; } catch (Exception e) { r = "absent"; Log.Warn("Tactique, état du module : " + e.Message); }
+                    Log.Info($"Tactique : module {r} ({sw.ElapsedMilliseconds} ms)");
+                    return r;
+                })
+                    .ContinueWith(t => Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        bool changed = t.Result != _bridgeState;
+                        _bridgeState = t.Result;
+                        if (changed) ShowTactic();
+                        _tacRetry = t.Result == "prêt";   // si pas prêt : nouvel essai au prochain affichage
+                    })));
             }
             if (_bridgeState == "prêt" && TacticFm.Feet.Count == 0 && !_feetLoading)
             {
                 _feetLoading = true;
-                Task.Run(() => { try { TacticFm.PersonsOf(Bridge.Ctx()); } catch { } })
-                    .ContinueWith(_ => { if (PageTactic.Visibility == Visibility.Visible) ShowTactic(); }, TaskScheduler.FromCurrentSynchronizationContext());
+                Task.Run(() => { try { TacticFm.PersonsOf(Bridge.Ctx()); } catch (Exception e) { Log.Warn("Pieds : " + e.Message); } })
+                    .ContinueWith(_ => Dispatcher.BeginInvoke(new Action(ShowTactic)));
             }
             var box = new StackPanel { Margin = new Thickness(0, 16, 0, 0) };
             box.Children.Add(new TextBlock { Text = "DANS FM27", Style = (Style)FindResource("Caps"), Margin = new Thickness(0, 0, 0, 6) });
