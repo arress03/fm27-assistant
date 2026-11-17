@@ -88,7 +88,7 @@
         <Grid DockPanel.Dock="Left" Width="400">
           <TextBox x:Name="TopSearch" TextChanged="TopSearch_TextChanged" KeyDown="TopSearch_KeyDown" VerticalAlignment="Center" Padding="34,8,10,8"/>
           <TextBlock Style="{StaticResource Icon}" Text="&#xE721;" FontSize="13" Foreground="{DynamicResource Faint}" Margin="13,0,0,0" HorizontalAlignment="Left" IsHitTestVisible="False"/>
-          <TextBlock Text="Rechercher un joueur dans toute la base" IsHitTestVisible="False" Margin="36,0,0,0" VerticalAlignment="Center"
+          <TextBlock Text="Rechercher dans ta partie : joueur ou club" IsHitTestVisible="False" Margin="36,0,0,0" VerticalAlignment="Center"
                      Foreground="{DynamicResource Faint}" x:Name="TopSearchHint"/>
           <Popup x:Name="TopPopup" PlacementTarget="{Binding ElementName=TopSearch}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" Width="540" VerticalOffset="6">
             <Border Background="{DynamicResource Panel2}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="10" Padding="6" MaxHeight="520">

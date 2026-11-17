@@ -311,11 +311,21 @@ namespace FM27Scout
 
         void OpenPlayer(PlayerRow r) { if (r == null) return; ShowPlayer(r); ShowPage(NavPlayer); }
 
+        static readonly Dictionary<string, string> s_clubKeys = new();
+        static string ClubKey(string club) { if (!s_clubKeys.TryGetValue(club, out var k)) s_clubKeys[club] = k = Game.Fold(club); return k; }
+
         static List<PlayerRow> FindByName(string text, int max)
         {
             string q = Game.Fold(text.Trim());
             if (q.Length < 2 || Game.Rows.Count == 0) return new();
-            return Game.Rows.Where(r => Game.Shown(r) && r.NameKey.Contains(q)).OrderByDescending(r => r.NameKey.StartsWith(q)).ThenByDescending(r => r.CA).Take(max).ToList();
+            // recherche dans la base de TA partie (lue en direct dans FM) : nom du joueur, ou nom du club ;
+            // ton club d'abord, puis les débuts de nom, puis le niveau
+            string mine = Settings.Cur.MyClub;
+            return Game.Rows.Where(r => Game.Shown(r) && (r.NameKey.Contains(q) || (q.Length >= 3 && r.Club != "" && ClubKey(r.Club).Contains(q))))
+                .OrderByDescending(r => r.NameKey.Contains(q))
+                .ThenByDescending(r => mine != "" && r.Club == mine)
+                .ThenByDescending(r => r.NameKey.StartsWith(q) || r.NameKey.Contains(" " + q))
+                .ThenByDescending(r => r.CA).Take(max).ToList();
         }
 
         static ListBoxItem PlayerItem(PlayerRow r)

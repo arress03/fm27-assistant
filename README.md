@@ -56,7 +56,7 @@ Pas de version Mac pour l'instant, pour deux raisons :
 | **Comparateur** | Deux joueurs côte à côte, attribut par attribut, avec profil en radar. |
 | **Fiche joueur** | Tout sur un joueur : potentiel, personnalité, fragilité, meilleurs rôles, historique de progression, joueurs similaires (plus jeunes / moins chers). |
 
-La **barre du haut** cherche n'importe quel joueur de la base (plus de 140 000).
+La **barre du haut** cherche dans la base de ta partie (lue en direct dans FM, plus de 140 000 joueurs) : par nom de joueur ou de club, ton club en premier.
 
 ### Tactique
 
