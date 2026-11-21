@@ -23,6 +23,7 @@ namespace FM27Scout
             ("{0}  ({1} joueurs)", "{0}  ({1} players)", "{0}  ({1} jogadores)"),
             ("Base pas encore lue", "Database not read yet", "Base de dados ainda não lida"),
             ("Aucun club trouvé", "No club found", "Nenhum clube encontrado"),
+            ("Détection automatique (club géré dans FM)", "Automatic detection (club managed in FM)", "Deteção automática (clube orientado no FM)"),
 
             // affichage : sexe
             ("Hommes", "Men", "Masculino"),

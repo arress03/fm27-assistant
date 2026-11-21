@@ -374,6 +374,7 @@ namespace FM27Scout
         public uint PinnedId { get; set; }
         public string AlertClub { get; set; } = "";
         public string MyClub { get; set; } = "";
+        public bool MyClubManual { get; set; }                     // club choisi à la main : la détection automatique ne le change plus
         public string GraphicsPath { get; set; } = "";             // vide = Documents\Sports Interactive\Football Manager 27\graphics
         public int PersonUidOff { get; set; } = -1;               // retrouvés automatiquement
         public int ClubUidOff { get; set; } = -1;

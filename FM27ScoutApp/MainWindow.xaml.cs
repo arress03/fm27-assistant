@@ -589,11 +589,17 @@ namespace FM27Scout
 
         string _teamFilter;
 
-        void ChangeClub_Click(object s, RoutedEventArgs e) { ClubPicker.Visibility = Visibility.Visible; MyClubSearch.Focus(); BuildMyClubList(); }
+        bool _pickerByUser;   // liste ouverte par « Changer de club » (choix volontaire), pas affichée faute de club connu
+
+        void ChangeClub_Click(object s, RoutedEventArgs e) { _pickerByUser = true; ClubPicker.Visibility = Visibility.Visible; MyClubSearch.Focus(); BuildMyClubList(); }
+
+        static readonly object AutoClubTag = new();
 
         void BuildMyClubList()
         {
             MyClubList.Items.Clear();
+            if (Settings.Cur.MyClubManual)
+                MyClubList.Items.Add(new ListBoxItem { Content = T(L.T("Détection automatique (club géré dans FM)"), 13, BAccent, true), Tag = AutoClubTag });
             string q = Game.Fold(MyClubSearch.Text.Trim());
             foreach (var c in Clubs(q, 150))
             {
@@ -602,7 +608,7 @@ namespace FM27Scout
                 row.Children.Add(T(L.F("{0}  ({1} joueurs)", c.name, c.n), 13));
                 MyClubList.Items.Add(new ListBoxItem { Content = row, Tag = c.name });
             }
-            if (MyClubList.Items.Count == 0)
+            if (!MyClubList.Items.Cast<ListBoxItem>().Any(i => i.Tag is string))
                 MyClubList.Items.Add(new ListBoxItem { Content = T(L.T(Game.Rows.Count == 0 ? "Base pas encore lue" : "Aucun club trouvé"), 13, BDim), IsEnabled = false });
         }
 
@@ -616,9 +622,16 @@ namespace FM27Scout
 
         void MyClubList_SelectionChanged(object s, SelectionChangedEventArgs e)
         {
-            if (MyClubList.SelectedItem is not ListBoxItem { Tag: string name }) return;
-            Settings.Cur.MyClub = name;
-            if (Settings.Cur.AlertClub == "") Settings.Cur.AlertClub = name;
+            if (MyClubList.SelectedItem is not ListBoxItem { Tag: { } tag }) return;
+            if (tag == AutoClubTag) { Settings.Cur.MyClubManual = false; _clubCheckedAt = DateTime.MinValue; }
+            else if (tag is string name)
+            {
+                Settings.Cur.MyClub = name;
+                if (_pickerByUser) Settings.Cur.MyClubManual = true;
+                if (Settings.Cur.AlertClub == "") Settings.Cur.AlertClub = name;
+            }
+            else return;
+            _pickerByUser = false;
             Settings.Save();
             ClubPicker.Visibility = Visibility.Collapsed;
             _teamFilter = null;

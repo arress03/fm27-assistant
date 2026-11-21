@@ -124,6 +124,8 @@ namespace FM27Scout
         public sealed class Context
         {
             public int Manager, Team, Assistant;
+            /// <summary>Contexte tiré de l'écran Entraînement (toujours ton équipe), pas du calendrier (qui peut être celui d'un autre club consulté).</summary>
+            public bool FromTraining;
             public string TeamTraining => $"825307168=128;1198877028=1;1348620377={Manager};1416914273={Team}";
             public string Calendar => $"825241632=1;825307168=9;1198877028=1;1214805357={Manager};1415930221={Team}";
             public string PlayerTraining(int person) => $"825307168=77;1198877028=1;1348620377={Manager};1348825715={person};1416196963=1";
@@ -149,10 +151,11 @@ namespace FM27Scout
                 map[type] = d;
             }
             var c = new Context();
-            if (map.TryGetValue("FM.UI.CalendarReference", out var cal) && cal.ContainsKey(1214805357))
+            // l'entraînement n'existe que pour tes équipes ; le calendrier est le dernier consulté, parfois celui d'un autre club
+            if (map.TryGetValue("FM.UI.TeamTrainingReference", out var tt) && tt.GetValueOrDefault(1348620377u) != 0 && tt.GetValueOrDefault(1416914273u) != 0)
+            { c.Manager = tt[1348620377u]; c.Team = tt[1416914273u]; c.FromTraining = true; }
+            else if (map.TryGetValue("FM.UI.CalendarReference", out var cal) && cal.ContainsKey(1214805357))
             { c.Manager = cal[1214805357]; c.Team = cal.GetValueOrDefault(1415930221u); }
-            if ((c.Manager == 0 || c.Team == 0) && map.TryGetValue("FM.UI.TeamTrainingReference", out var tt))
-            { c.Manager = tt.GetValueOrDefault(1348620377u); c.Team = tt.GetValueOrDefault(1416914273u); }
             if (c.Manager == 0 || c.Team == 0) throw new Exception(L.T("partie pas encore reconnue : ouvre une fois l'écran Entraînement dans FM"));
             return c;
         }

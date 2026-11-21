@@ -63,42 +63,82 @@ namespace FM27Scout
         /// <summary>Demande à FM (via FM27 Bridge) quel club tu diriges et ses couleurs : « Mon club » et le thème suivent tout seuls.</summary>
         void DetectClub()
         {
-            if (_clubBusy || (DateTime.Now - _clubCheckedAt).TotalSeconds < 45) return;
+            if (_clubBusy || Settings.Cur.MyClubManual || (DateTime.Now - _clubCheckedAt).TotalSeconds < 45) return;
+            bool haveClub = Settings.Cur.MyClub != "";
             _clubCheckedAt = DateTime.Now; _clubBusy = true;
             Task.Run(() =>
             {
                 try
                 {
-                    if (Bridge.Status() != "prêt") return ((string, Color?, Color?)?)null;
+                    if (Bridge.Status() != "prêt") return ((string, Color?, Color?, string)?)null;
                     var ctx = Bridge.Ctx();
+                    // contexte tiré du calendrier : peut être celui d'un autre club consulté dans FM ; ne sert qu'à défaut de club connu
+                    if (!ctx.FromTraining && haveClub) return ((string, Color?, Color?, string)?)null;
                     var clubRef = Bridge.Read1("PersonReference", Bridge.Context.Person(ctx.Manager), "825630752");
                     string pairs = Bridge.PairsOf(clubRef);
-                    if (pairs == "") return ((string, Color?, Color?)?)null;
-                    var v = Bridge.Read(new[] { ("ClubReference", pairs, "1851878757"), ("ClubReference", pairs, "1835218292"), ("ClubReference", pairs, "943267874") });
-                    return ((string, Color?, Color?)?)(Bridge.DisplayName(Bridge.Str(v[0])), Theme.ParseFm(Bridge.Str(v[1])), Theme.ParseFm(Bridge.Str(v[2])));
+                    if (pairs == "") return ((string, Color?, Color?, string)?)null;
+                    var v = Bridge.Read(new[] { ("ClubReference", pairs, "1851878757"), ("ClubReference", pairs, "1835218292"), ("ClubReference", pairs, "943267874"),
+                                                ("ClubReference", pairs, Bridge.CC("unid").ToString()) });
+                    // club identifié par des identifiants (indépendant de la langue de FM) : effectif géré, sinon identifiant du club
+                    string byId = null;
+                    if (ctx.FromTraining) try { byId = SquadClub(ctx); } catch (Exception e) { Log.Warn("Club géré (effectif) : " + e.Message); }
+                    byId ??= ClubByUid((uint)Math.Max(0, Bridge.Int(v[3], 0)));
+                    return ((string, Color?, Color?, string)?)(Bridge.DisplayName(Bridge.Str(v[0])), Theme.ParseFm(Bridge.Str(v[1])), Theme.ParseFm(Bridge.Str(v[2])), byId);
                 }
-                catch (Exception e) { Log.Warn("Club géré : " + e.Message); return ((string, Color?, Color?)?)null; }
+                catch (Exception e) { Log.Warn("Club géré : " + e.Message); return ((string, Color?, Color?, string)?)null; }
             }).ContinueWith(t =>
             {
                 _clubBusy = false;
-                if (t.Result is not { } res || string.IsNullOrWhiteSpace(res.Item1)) return;
-                var (name, c1n, c2n) = res;
+                if (t.Result is not { } res) return;
+                var (name, c1n, c2n, byId) = res;
+                if (byId == null && string.IsNullOrWhiteSpace(name)) return;
                 bool changed = false;
                 if (c1n is Color c1)
                 {
                     var c2 = c2n ?? Colors.White;
                     if ((c1, c2) != _clubColors) { bool first = _clubColors == default; _clubColors = (c1, c2); if (!first || (c1 != Theme.Primary && c2 != Theme.Primary)) { Theme.Apply(c1, c2); changed = true; } }
                 }
-                Settings.Cur.MyClubFm = name;
-                // nom tel que lu en mémoire par l'app (souvent identique, parfois abrégé)
-                string fold = Game.Fold(name);
-                var clubs = Game.Rows.Where(r => r.Club != "").Select(r => r.Club).Distinct().ToList();
-                string match = clubs.FirstOrDefault(c => Game.Fold(c) == fold)
-                            ?? clubs.Where(c => Game.Fold(c).Contains(fold) || fold.Contains(Game.Fold(c))).OrderBy(c => Math.Abs(c.Length - name.Length)).FirstOrDefault();
-                if (match != null && match != Settings.Cur.MyClub) { Settings.Cur.MyClub = match; changed = true; Log.Info("Club géré détecté dans FM : " + match); }
+                if (!string.IsNullOrWhiteSpace(name)) Settings.Cur.MyClubFm = name;
+                string match = byId ?? ClubByName(name);
+                if (match != null && match != Settings.Cur.MyClub)
+                {
+                    Settings.Cur.MyClub = match; changed = true;
+                    Log.Info($"Club géré détecté dans FM : {match} (par {(byId != null ? "identifiants" : "nom « " + name + " »")})");
+                }
                 Settings.Save();
                 if (changed) RefreshAll(); else UpdateSide();
             }, TaskScheduler.FromCurrentSynchronizationContext());
+        }
+
+        /// <summary>Club des joueurs que tu entraînes (effectif lu dans FM, reliés à la base par leur identifiant FM) : le club le plus représenté.</summary>
+        static string SquadClub(Bridge.Context ctx)
+        {
+            const uint pSquad = 1432578628, kPerson = 1685218662;
+            var list = Bridge.Read1("TeamTrainingReference", ctx.TeamTraining, pSquad.ToString());
+            var persons = Bridge.Items(list).Select(x => Bridge.PairOf(x, kPerson)).Where(p => p != 0).Distinct().Take(40).ToList();
+            if (persons.Count == 0) return null;
+            string unid = Bridge.CC("unid").ToString();
+            var uids = Bridge.Read(persons.Select(p => ("PersonReference", Bridge.Context.Person(p), unid)).ToList())
+                .Select(v => (uint)Math.Max(0, Bridge.Int(v, 0))).Where(u => u != 0).ToHashSet();
+            var clubs = Game.Rows.Where(r => r.Uid != 0 && uids.Contains(r.Uid) && r.Club != "").GroupBy(r => r.Club)
+                .Select(g => (club: g.Key, n: g.Count())).OrderByDescending(x => x.n).ToList();
+            // au moins la moitié des joueurs reconnus dans le même club (prêts et transferts récents mis à part)
+            return clubs.Count > 0 && clubs[0].n * 2 >= clubs.Sum(x => x.n) ? clubs[0].club : null;
+        }
+
+        /// <summary>Club dont l'identifiant FM (celui des logos) est donné.</summary>
+        static string ClubByUid(uint uid) =>
+            uid == 0 ? null : Game.Rows.FirstOrDefault(r => r.Club != "" && r.ClubPtr != 0 && Gfx.ClubUid.TryGetValue(r.ClubPtr, out var u) && u == uid)?.Club;
+
+        /// <summary>Club de la base au nom donné par FM (dernier recours) : nom identique, sinon l'un contient l'autre (noms courts exclus).</summary>
+        static string ClubByName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name) || name.Length > 60) return null;
+            string fold = Game.Fold(name);
+            var clubs = Game.Rows.Where(r => r.Club != "").Select(r => r.Club).Distinct().ToList();
+            return clubs.FirstOrDefault(c => Game.Fold(c) == fold)
+                ?? clubs.Where(c => { string fc = Game.Fold(c); return Math.Min(fc.Length, fold.Length) >= 4 && (fc.Contains(fold) || fold.Contains(fc)); })
+                        .OrderBy(c => Math.Abs(c.Length - name.Length)).FirstOrDefault();
         }
 
         // ============================================================ guide
