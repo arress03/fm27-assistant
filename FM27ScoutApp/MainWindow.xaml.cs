@@ -156,13 +156,13 @@ namespace FM27Scout
             _lastRead = DateTime.Now;
 
             if (rows == null || rows.Count == 0) { SetStatus(false, Game.LastError == "" ? L.T("Aucun joueur lu.") : Game.LastError); return; }
-            Game.Rows = rows;
+            Game.Rows = rows; Game.Proc = g;
             Game.ById = rows.GroupBy(r => r.Id).ToDictionary(gr => gr.Key, gr => gr.First());
             Settings.Cur.VTableRva = (Game.PlayerVTable - g.PluginBase).ToString("X");
             Settings.Cur.PluginVersion = g.PluginVersion;
             Settings.Save();
             SetStatus(true, L.T("Photos et logos…"));
-            try { await _gfxTask; await Task.Run(() => Gfx.Calibrate(g, rows, Game.Diagnostic)); }
+            try { await _gfxTask; await Task.Run(() => { Gfx.Calibrate(g, rows, Game.Diagnostic); Gfx.UseSavedIds(g, rows); }); }
             catch (Exception ex) { Log.Warn("Graphismes : " + ex.Message); }
             Features.SaveHistory(rows);
             var probeSquad = rows.Where(r => r.Club == Settings.Cur.MyClub && Settings.Cur.MyClub != "").ToList();

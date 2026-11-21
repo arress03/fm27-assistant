@@ -50,6 +50,7 @@ namespace FM27Scout
 
         public static List<PlayerRow> Rows = new();
         public static Dictionary<uint, PlayerRow> ById = new();
+        public static GameProcess Proc;          // processus FM de la dernière lecture (pour retrouver les identifiants FM sans pack graphique)
         public static DateTime ReadAt;
         public static ulong PlayerVTable;
         public static string LastError = "";

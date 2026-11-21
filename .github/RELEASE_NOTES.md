@@ -1,9 +1,9 @@
-## FM27 Assistant 3.1.1
+## FM27 Assistant 3.1.2
 
-- Club géré : la détection ne bascule plus sur un autre club quand tu consultes son calendrier dans FM (contexte lu depuis l'écran Entraînement, club reconnu par l'effectif et les identifiants FM).
-- Un club choisi avec « Changer de club » n'est plus remplacé par la détection automatique (réactivable en tête de la liste).
+- Plus besoin de pack de photos (facepack) : les identifiants FM des joueurs sont retrouvés grâce à ton effectif lu par FM27 Bridge. Corrige « aucun joueur de l'onze reconnu dans FM » (coups de pied arrêtés), la détection du club, les pieds et les blessés.
+- Coups de pied arrêtés : message précis si l'effectif n'est pas lu (ouvre l'écran Entraînement dans FM) ou si « Mon club » n'est pas ton club.
 
-*English: fixed "My club" switching to a random club (the last club whose calendar you opened in FM). A club picked with "Change club" is now kept; automatic detection can be turned back on at the top of the list.*
+*English: a facepack is no longer needed. Player IDs are now found from your squad as read by FM27 Bridge, which fixes "no player from the XI was found in FM" for set pieces, club detection, feet and injuries. Clearer set-piece messages.*
 
 ### Installation
 Télécharge `FM27-Assistant-Setup.exe`, ferme FM27 et lance-le : il trouve le jeu (Steam), installe BepInEx + FM27 Bridge, l'application et les raccourcis. Si une version précédente est installée, elle est remplacée.

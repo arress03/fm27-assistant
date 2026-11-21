@@ -117,8 +117,9 @@ namespace FM27Scout
         public static List<string> Apply(Bridge.Context c, List<PlayerRow> xi, Dictionary<uint, int> persons)
         {
             var done = new List<string>();
+            if (persons.Count == 0) throw new Exception(L.T("effectif non lu dans FM : ouvre une fois l'écran Entraînement dans FM, puis réessaie"));
             var field = xi.Where(r => r.Positions[0] < 15 && persons.ContainsKey(r.Uid)).ToList();
-            if (field.Count == 0) throw new Exception(L.T("aucun joueur de l'onze reconnu dans FM"));
+            if (field.Count == 0) throw new Exception(L.T("aucun joueur de l'onze reconnu dans FM : vérifie que « Mon club » est bien le club que tu diriges"));
             string p = Pairs(c);
 
             // tireurs de corners

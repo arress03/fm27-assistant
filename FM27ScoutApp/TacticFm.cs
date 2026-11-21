@@ -141,6 +141,7 @@ namespace FM27Scout
                 map[(uint)uid] = persons[i];
                 if (Bridge.Int(vals[i * 2 + 1], -1) < 0) lock (Unavailable) Unavailable.Add((uint)uid);   // condition illisible = blessé
             }
+            Gfx.MatchIds(map.Keys);   // sans pack de photos : relie la base aux identifiants FM de ton effectif
             try { ReadFeet(map); } catch { }
             return map;
         }

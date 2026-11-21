@@ -120,6 +120,7 @@ namespace FM27Scout
             string unid = Bridge.CC("unid").ToString();
             var uids = Bridge.Read(persons.Select(p => ("PersonReference", Bridge.Context.Person(p), unid)).ToList())
                 .Select(v => (uint)Math.Max(0, Bridge.Int(v, 0))).Where(u => u != 0).ToHashSet();
+            Gfx.MatchIds(uids);   // sans pack de photos : relie la base aux identifiants FM de ton effectif
             var clubs = Game.Rows.Where(r => r.Uid != 0 && uids.Contains(r.Uid) && r.Club != "").GroupBy(r => r.Club)
                 .Select(g => (club: g.Key, n: g.Count())).OrderByDescending(x => x.n).ToList();
             // au moins la moitié des joueurs reconnus dans le même club (prêts et transferts récents mis à part)

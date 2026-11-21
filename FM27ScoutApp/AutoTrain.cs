@@ -104,6 +104,7 @@ namespace FM27Scout
                     reqs.Add(("PersonReference", Bridge.Context.Person(p), prop.ToString()));
             var vals = Bridge.Read(reqs);
             var res = new List<Player>();
+            Gfx.MatchIds(Enumerable.Range(0, persons.Count).Select(i => (uint)Math.Max(0, Bridge.Int(vals[i * 5], 0))).Where(u => u != 0).ToHashSet());
             for (int i = 0; i < persons.Count; i++)
             {
                 var pl = new Player
