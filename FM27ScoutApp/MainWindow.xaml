@@ -79,6 +79,8 @@
             <WrapPanel x:Name="GenderToggles" Margin="14,0,10,0"/>
             <TextBlock Text="Colonnes des tableaux" Style="{StaticResource Small}" Margin="22,10,0,6"/>
             <WrapPanel x:Name="ColToggles" Margin="14,0,10,0"/>
+            <TextBlock Text="Langue" Style="{StaticResource Small}" Margin="22,10,0,6"/>
+            <WrapPanel x:Name="LangToggles" Margin="14,0,10,0"/>
             <Button Style="{StaticResource Ghost}" Content="Revoir le guide" HorizontalAlignment="Left" Margin="12,10,0,0" Click="GuideAgain_Click"/>
           </StackPanel>
         </ScrollViewer>

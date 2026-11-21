@@ -49,7 +49,7 @@ namespace FM27Scout
         void UpdateSide()
         {
             string club = Settings.Cur.MyClub;
-            SideClubName.Text = club == "" ? "Aucun club" : club;
+            SideClubName.Text = club == "" ? L.T("Aucun club") : club;
             var any = club == "" ? null : Game.Rows.FirstOrDefault(r => r.Club == club && r.ClubPtr != 0);
             var logo = any == null ? null : Gfx.Logo(any.ClubPtr, 52);
             SideClubLogo.Source = logo;
@@ -176,19 +176,19 @@ namespace FM27Scout
             if (_guideIndex == 0) _guideTotal = _guideQueue.Count;
             var g = _guideQueue.Dequeue();
             _guideIndex++;
-            GuideStep.Text = _guideTotal > 1 ? $"ÉTAPE {_guideIndex} SUR {_guideTotal}" : "CONSEIL";
-            GuideTitle.Text = g.Title;
-            GuideText.Text = g.Text;
+            GuideStep.Text = _guideTotal > 1 ? L.F("ÉTAPE {0} SUR {1}", _guideIndex, _guideTotal) : L.T("CONSEIL");
+            GuideTitle.Text = L.T(g.Title);
+            GuideText.Text = L.T(g.Text);
             GuidePoints.Children.Clear();
             foreach (var p in g.Points)
             {
                 var line = new DockPanel { Margin = new Thickness(0, 6, 0, 0) };
                 var dot = new Border { Width = 6, Height = 6, CornerRadius = new CornerRadius(3), Background = BAccent, Margin = new Thickness(2, 7, 12, 0), VerticalAlignment = VerticalAlignment.Top };
                 line.Children.Add(dot);
-                line.Children.Add(new TextBlock { Text = p, TextWrapping = TextWrapping.Wrap, FontSize = 13.5, Foreground = BText });
+                line.Children.Add(new TextBlock { Text = L.T(p), TextWrapping = TextWrapping.Wrap, FontSize = 13.5, Foreground = BText });
                 GuidePoints.Children.Add(line);
             }
-            GuideNext.Content = _guideQueue.Count > 0 ? "Suivant" : "Compris";
+            GuideNext.Content = _guideQueue.Count > 0 ? L.T("Suivant") : L.T("Compris");
             GuideSkip.Visibility = _guideQueue.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             GuideMute.Visibility = _guideTotal > 1 ? Visibility.Collapsed : Visibility.Visible;
             GuideMute.IsChecked = false;

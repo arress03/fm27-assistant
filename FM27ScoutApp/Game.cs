@@ -128,13 +128,13 @@ namespace FM27Scout
                             }
                         }
                         long d = Interlocked.Add(ref done, Math.Min((long)step, (long)(reg.start + reg.size - pos)));
-                        progress?.Invoke(0.75 * d / Math.Max(1, total), "Lecture de la mémoire du jeu…");
+                        progress?.Invoke(0.75 * d / Math.Max(1, total), L.T("Lecture de la mémoire du jeu…"));
                     }
                     return local;
                 },
                 local => { foreach (var kv in local.hist) dateHist.AddOrUpdate(kv.Key, kv.Value, (_, c) => c + kv.Value); });
 
-            if (byVt.IsEmpty) { LastError = "Aucun joueur trouvé : charge une partie dans FM27."; return new(); }
+            if (byVt.IsEmpty) { LastError = L.T("Aucun joueur trouvé : charge une partie dans FM27."); return new(); }
 
             // 2) le type "joueur" = le vtable qui a le plus d'instances plausibles (indice : celui déjà connu)
             var best = byVt.OrderByDescending(kv => kv.Value.Count).First();
@@ -146,7 +146,7 @@ namespace FM27Scout
             int multi = groups.Count(gr => gr.Count() > 1);
 
             // 3) noms, contrats, clubs, calendrier
-            progress?.Invoke(0.78, "Lecture des noms, contrats et clubs…");
+            progress?.Invoke(0.78, L.T("Lecture des noms, contrats et clubs…"));
             var clubNames = new ConcurrentDictionary<ulong, string>();
             var teamDates = new ConcurrentDictionary<ulong, uint>();
             var rowsBag = new ConcurrentBag<PlayerRow>();
@@ -191,12 +191,12 @@ namespace FM27Scout
                     chosen.NameKey = Fold(chosen.Name);
                     rowsBag.Add(chosen);
                     int k = Interlocked.Increment(ref n);
-                    if (k % 2000 == 0) progress?.Invoke(0.78 + 0.22 * k / groups.Count, "Lecture des noms, contrats et clubs…");
+                    if (k % 2000 == 0) progress?.Invoke(0.78 + 0.22 * k / groups.Count, L.T("Lecture des noms, contrats et clubs…"));
                     return co;
                 },
                 _ => { });
             var rows = rowsBag.ToList();
-            if (rows.Count < 1000) LastError = $"Seulement {rows.Count} joueurs trouvés : la partie est-elle chargée ?";
+            if (rows.Count < 1000) LastError = L.F("Seulement {0} joueurs trouvés : la partie est-elle chargée ?", rows.Count);
             Diagnostic = new List<string>
             {
                 $"FM {g.PluginVersion} · game_plugin 0x{g.PluginBase:X} · vtable joueur +0x{PlayerVTable - g.PluginBase:X}",
@@ -215,7 +215,7 @@ namespace FM27Scout
             if (female > rows.Count * 6 / 10) foreach (var r in rows) r.Female = false;   // indicateur incohérent
             ReadAt = DateTime.Now;
             LastError = rows.Count < 1000 ? LastError : "";
-            progress?.Invoke(1, $"{rows.Count:N0} joueurs lus en {(DateTime.UtcNow - t0).TotalSeconds:F1} s");
+            progress?.Invoke(1, L.F("{0:N0} joueurs lus en {1:F1} s", rows.Count, (DateTime.UtcNow - t0).TotalSeconds));
             return rows;
         }
 

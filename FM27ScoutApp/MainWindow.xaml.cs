@@ -58,17 +58,21 @@ namespace FM27Scout
         public MainWindow()
         {
             InitializeComponent();
+            L.Apply(this);
             RestoreWindow();
+            Closed += (_, _) => { _timer.Stop(); if (!_reading) _g?.Dispose(); };
             SourceInitialized += (_, _) => DarkTitleBar();
             if (DateTime.TryParse(Settings.Cur.ManualDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out var md)) Game.SetDate(md, true);
             _gfxTask = Task.Run(Gfx.Load);
             BuildColToggles();
             BuildGenderToggles();
+            BuildLangToggles();
             BuildSearchList();
             BuildRadarFilters();
             ShowPage(NavClub);
             ShowPlayer(null);
             UpdateDateUi();
+            if (Game.Rows.Count > 0) RefreshAll();   // écran recréé après un changement de langue : la base est déjà lue
             _timer.Tick += (_, _) => Tick();
             _timer.Start();
             Tick();
@@ -127,7 +131,7 @@ namespace FM27Scout
             if (Game.Rows.Count == 0 || (_retryAt != null && DateTime.Now > _retryAt)) { _retryAt = null; StartRead(); return; }
             if (AutoRefresh.IsChecked == true && DateTime.Now - _lastRead > TimeSpan.FromMinutes(5)) StartRead();
             DetectClub();
-            SetStatus(true, $"Connecté à FM27 · {Game.Rows.Count:N0} joueurs · lus à {Game.ReadAt:HH:mm}");
+            SetStatus(true, L.F("Connecté à FM27 · {0:N0} joueurs · lus à {1:HH:mm}", Game.Rows.Count, Game.ReadAt));
         }
 
         void SetStatus(bool ok, string text) { StatusDot.Fill = ok ? BGood : BBad; StatusText.Text = text; }
@@ -151,13 +155,13 @@ namespace FM27Scout
             _reading = false; ReadBtn.IsEnabled = true; Progress.Visibility = Visibility.Collapsed;
             _lastRead = DateTime.Now;
 
-            if (rows == null || rows.Count == 0) { SetStatus(false, Game.LastError == "" ? "Aucun joueur lu." : Game.LastError); return; }
+            if (rows == null || rows.Count == 0) { SetStatus(false, Game.LastError == "" ? L.T("Aucun joueur lu.") : Game.LastError); return; }
             Game.Rows = rows;
             Game.ById = rows.GroupBy(r => r.Id).ToDictionary(gr => gr.Key, gr => gr.First());
             Settings.Cur.VTableRva = (Game.PlayerVTable - g.PluginBase).ToString("X");
             Settings.Cur.PluginVersion = g.PluginVersion;
             Settings.Save();
-            SetStatus(true, "Photos et logos…");
+            SetStatus(true, L.T("Photos et logos…"));
             try { await _gfxTask; await Task.Run(() => Gfx.Calibrate(g, rows, Game.Diagnostic)); }
             catch (Exception ex) { Log.Warn("Graphismes : " + ex.Message); }
             Features.SaveHistory(rows);
@@ -166,13 +170,13 @@ namespace FM27Scout
             Game.Diagnostic.Add("graphismes : " + Gfx.Info + $" · joueurs avec photo {rows.Count(r => r.Uid > 0 && Gfx.Faces.ContainsKey(r.Uid))} · clubs avec logo {Gfx.ClubUid.Values.Count(u => Gfx.Logos.ContainsKey(u))}");
             Log.Info($"{rows.Count} joueurs lus, date {Game.FmDate(Game.GameYear, Game.GameDoy)}. " + string.Join(" | ", Game.Diagnostic.Take(3)));
             WriteDiagnostic(g);
-            SetStatus(true, $"Connecté à FM27 · {rows.Count:N0} joueurs · lus à {Game.ReadAt:HH:mm}" + (Game.LastError != "" ? " · " + Game.LastError : ""));
+            SetStatus(true, L.F("Connecté à FM27 · {0:N0} joueurs · lus à {1:HH:mm}", rows.Count, Game.ReadAt) + (Game.LastError != "" ? " · " + Game.LastError : ""));
             // lecture faite pendant le chargement de la partie : les noms ne sont pas encore là, on relit vite
             int named = rows.Count(r => !r.Name.StartsWith("Joueur #"));
             if (named < rows.Count / 2)
             {
                 _retryAt = DateTime.Now.AddSeconds(20);
-                SetStatus(true, $"Partie en cours de chargement ({named:N0} noms sur {rows.Count:N0}) · nouvelle lecture dans 20 s");
+                SetStatus(true, L.F("Partie en cours de chargement ({0:N0} noms sur {1:N0}) · nouvelle lecture dans 20 s", named, rows.Count));
             }
 
             PlayerRow Re(PlayerRow r) => r == null ? null : Game.ById.GetValueOrDefault(r.Id, r);
@@ -182,7 +186,7 @@ namespace FM27Scout
             RefreshAll();
             var (_, fresh) = Db.CheckRadar(false);
             RadarBadge.Visibility = fresh.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-            RadarBadgeText.Text = fresh.Count > 0 ? $"Radar : {fresh.Count} nouveau(x) joueur(s), dont {fresh[0].Name} (PA {fresh[0].PA})" : "";
+            RadarBadgeText.Text = fresh.Count > 0 ? L.F("Radar : {0} nouveau(x) joueur(s), dont {1} (PA {2})", fresh.Count, fresh[0].Name, fresh[0].PA) : "";
         }
 
         void RefreshAll()
@@ -268,13 +272,13 @@ namespace FM27Scout
         void UpdateDateUi()
         {
             DateBox.Text = Game.HasDate ? Game.Date.ToString("dd/MM/yyyy") : "";
-            DateLabel.Text = !Game.HasDate ? "Date de jeu (inconnue)" : Game.DateIsManual ? "Date de jeu (manuelle)" : "Date de jeu (estimée)";
+            DateLabel.Text = L.T(!Game.HasDate ? "Date de jeu (inconnue)" : Game.DateIsManual ? "Date de jeu (manuelle)" : "Date de jeu (estimée)");
         }
 
         void DateOk_Click(object s, RoutedEventArgs e)
         {
             if (!DateTime.TryParseExact(DateBox.Text.Trim(), new[] { "d/M/yyyy", "dd/MM/yyyy" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d))
-            { MessageBox.Show("Format attendu : jj/mm/aaaa", "FM27 Assistant"); return; }
+            { MessageBox.Show(L.T("Format attendu : jj/mm/aaaa"), "FM27 Assistant"); return; }
             Game.SetDate(d, true);
             Settings.Cur.ManualDate = d.ToString("yyyy-MM-dd"); Settings.Save();
             UpdateDateUi(); RefreshAll();
@@ -337,7 +341,7 @@ namespace FM27Scout
             row.Children.Add(sp);
             sp.Children.Add(T(r.Name, 14, BText, true));
             int age = Game.Age(r);
-            sp.Children.Add(T($"{(r.Club == "" ? "Sans club" : r.Club)}  ·  {(age < 0 ? "" : age + " ans  ·  ")}{Db.BestPositions(r)}  ·  CA {r.CA} / PA {r.PA}", 12, BDim));
+            sp.Children.Add(T($"{(r.Club == "" ? L.T("Sans club") : r.Club)}  ·  {(age < 0 ? "" : L.F("{0} ans", age) + "  ·  ")}{Db.BestPositions(r)}  ·  CA {r.CA} / PA {r.PA}", 12, BDim));
             return new ListBoxItem { Content = row, Tag = r };
         }
 
@@ -400,12 +404,20 @@ namespace FM27Scout
 
         sealed record Extra(string Col, string Header, Type Type, Func<PlayerRow, object> Value, double Width, bool Accent = false);
 
-        // en-têtes courts uniques (infobulle = nom complet)
-        static readonly List<(string key, string shortName, string full)> StatCols = BuildStatCols();
+        // en-têtes courts uniques (infobulle = nom complet), dans la langue de l'interface
+        static (string lang, List<(string key, string shortName, string full)> cols) s_statCols;
+        static List<(string key, string shortName, string full)> StatCols
+        {
+            get
+            {
+                if (s_statCols.cols == null || s_statCols.lang != L.Lang) s_statCols = (L.Lang, BuildStatCols());
+                return s_statCols.cols;
+            }
+        }
 
         static List<(string, string, string)> BuildStatCols()
         {
-            var all = Names.Hidden.Select(h => (h.k, h.fr)).Concat(Names.Groups.SelectMany(g => g.attrs).Select(a => (a.k, a.fr))).ToList();
+            var all = Names.Hidden.Select(h => (h.k, fr: L.T(h.fr))).Concat(Names.Groups.SelectMany(g => g.attrs).Select(a => (a.k, fr: L.T(a.fr)))).ToList();
             var used = new HashSet<string>();
             var res = new List<(string, string, string)>();
             foreach (var (k, fr) in all)
@@ -433,7 +445,7 @@ namespace FM27Scout
             GenderToggles.Children.Clear();
             foreach (var (code, label) in new[] { ("H", "Hommes"), ("F", "Femmes"), ("T", "Tous") })
             {
-                var b = new ToggleButton { Content = label, IsChecked = Settings.Cur.Gender == code, Margin = new Thickness(0, 0, 4, 4), Padding = new Thickness(10, 4, 10, 4), FontSize = 12 };
+                var b = new ToggleButton { Content = L.T(label), IsChecked = Settings.Cur.Gender == code, Margin = new Thickness(0, 0, 4, 4), Padding = new Thickness(10, 4, 10, 4), FontSize = 12 };
                 b.Click += (_, _) =>
                 {
                     Settings.Cur.Gender = code; Settings.Save();
@@ -446,12 +458,33 @@ namespace FM27Scout
             }
         }
 
+        /// <summary>Choix de la langue : l'écran est recréé dans la nouvelle langue (la base lue reste en mémoire).</summary>
+        void BuildLangToggles()
+        {
+            LangToggles.Children.Clear();
+            foreach (var (code, label) in L.Languages)
+            {
+                var b = new ToggleButton { Content = code.ToUpperInvariant(), ToolTip = label, IsChecked = L.Lang == code, Margin = new Thickness(0, 0, 4, 4), Padding = new Thickness(10, 4, 10, 4), FontSize = 12 };
+                b.Click += (_, _) =>
+                {
+                    if (L.Lang == code) { b.IsChecked = true; return; }
+                    Settings.Cur.Lang = code; Settings.Save();
+                    L.Init();
+                    var w = new MainWindow();
+                    Application.Current.MainWindow = w;
+                    w.Show();
+                    Close();
+                };
+                LangToggles.Children.Add(b);
+            }
+        }
+
         void BuildColToggles()
         {
             ColToggles.Children.Clear();
             foreach (var grp in ColGroups)
             {
-                var b = new ToggleButton { Content = grp, IsChecked = !Settings.Cur.HiddenCols.Contains(grp), Margin = new Thickness(0, 0, 4, 4), Padding = new Thickness(8, 4, 8, 4), FontSize = 12 };
+                var b = new ToggleButton { Content = L.T(grp), IsChecked = !Settings.Cur.HiddenCols.Contains(grp), Margin = new Thickness(0, 0, 4, 4), Padding = new Thickness(8, 4, 8, 4), FontSize = 12 };
                 b.Click += (_, _) =>
                 {
                     if (!Settings.Cur.HiddenCols.Remove(grp)) Settings.Cur.HiddenCols.Add(grp);
@@ -519,18 +552,18 @@ namespace FM27Scout
                 g.Columns.Add(c);
                 return c;
             }
-            Col("Nom", "Nom", 200, bold: true);
+            Col("Nom", L.T("Nom"), 200, bold: true);
             foreach (var x in extras) Col(x.Col, x.Header, x.Width, x.Type == typeof(long) ? MoneyC : null, bold: x.Accent, color: x.Accent ? BAccent : null);
-            Col("Club", "Club", 160);
-            Col("Age", "Âge", 48);
-            Col("Postes", "Postes", 100);
+            Col("Club", L.T("Club"), 160);
+            Col("Age", L.T("Âge"), 48);
+            Col("Postes", L.T("Postes"), 100);
             Col("CA", "CA", 48, bold: true);
             Col("PA", "PA", 48, bold: true, color: BAccent);
-            Col("Valeur", "Valeur", 80, MoneyC);
-            Col("Contrat", "Contrat", 90, fmt: "dd/MM/yyyy");
+            Col("Valeur", L.T("Valeur"), 80, MoneyC);
+            Col("Contrat", L.T("Contrat"), 90, fmt: "dd/MM/yyyy");
             foreach (var (k, sh, full) in StatCols)
             {
-                var c = Col(k, new TextBlock { Text = sh, ToolTip = full + (GroupOf.TryGetValue(k, out var gr0) ? $" ({gr0})" : "") }, 54, statKey: k);
+                var c = Col(k, new TextBlock { Text = sh, ToolTip = full + (GroupOf.TryGetValue(k, out var gr0) ? $" ({L.T(gr0)})" : "") }, 54, statKey: k);
                 if (GroupOf.TryGetValue(k, out var gr)) ColGroup.AddOrUpdate(c, gr);
             }
             ApplyCols(g);
@@ -538,7 +571,7 @@ namespace FM27Scout
             // clic droit / Ctrl+C sur une ligne = copier le nom
             if (g.ContextMenu == null)
             {
-                var mi = new MenuItem { Header = "Copier le nom" };
+                var mi = new MenuItem { Header = L.T("Copier le nom") };
                 mi.Click += (_, _) => { if (g.SelectedItem is DataRowView v) CopyName(v["Nom"] as string, null); };
                 g.ContextMenu = new ContextMenu { Items = { mi } };
                 g.PreviewKeyDown += (_, e) =>
@@ -566,11 +599,11 @@ namespace FM27Scout
             {
                 var row = new StackPanel { Orientation = Orientation.Horizontal };
                 row.Children.Add(new System.Windows.Controls.Image { Source = Gfx.Logo(c.ptr, 48), Width = 24, Height = 24, Margin = new Thickness(0, 0, 8, 0) });
-                row.Children.Add(T($"{c.name}  ({c.n} joueurs)", 13));
+                row.Children.Add(T(L.F("{0}  ({1} joueurs)", c.name, c.n), 13));
                 MyClubList.Items.Add(new ListBoxItem { Content = row, Tag = c.name });
             }
             if (MyClubList.Items.Count == 0)
-                MyClubList.Items.Add(new ListBoxItem { Content = T(Game.Rows.Count == 0 ? "Base pas encore lue" : "Aucun club trouvé", 13, BDim), IsEnabled = false });
+                MyClubList.Items.Add(new ListBoxItem { Content = T(L.T(Game.Rows.Count == 0 ? "Base pas encore lue" : "Aucun club trouvé"), 13, BDim), IsEnabled = false });
         }
 
         static IEnumerable<(string name, int n, ulong ptr)> Clubs(string foldedQuery, int max) =>
@@ -622,17 +655,17 @@ namespace FM27Scout
             TeamChips.Children.Clear();
             ClubInfo.Children.Clear();
             ClubLogo.Visibility = Visibility.Collapsed;
-            if (Game.Rows.Count == 0) { ClubTitle.Text = "Lance FM27 et charge ta partie"; ClubGrid.ItemsSource = null; return; }
+            if (Game.Rows.Count == 0) { ClubTitle.Text = L.T("Lance FM27 et charge ta partie"); ClubGrid.ItemsSource = null; return; }
             if (Settings.Cur.MyClub == "" || !Game.Rows.Any(r => r.Club == Settings.Cur.MyClub))
             {
-                ClubTitle.Text = "Mon club"; ClubPicker.Visibility = Visibility.Visible; BuildMyClubList(); return;
+                ClubTitle.Text = L.T("Mon club"); ClubPicker.Visibility = Visibility.Visible; BuildMyClubList(); return;
             }
             ClubTitle.Text = Settings.Cur.MyClub;
             var squad = Game.Rows.Where(r => r.Club == Settings.Cur.MyClub && Game.Shown(r)).ToList();
             if (squad.Count == 0)
             {
                 ClubGrid.ItemsSource = null;
-                ClubInfo.Children.Add(InfoTile("Aucun joueur", Settings.Cur.Gender == "F" ? "pas d'équipe féminine dans ce club" : "pour ce filtre"));
+                ClubInfo.Children.Add(InfoTile(L.T("Aucun joueur"), L.T(Settings.Cur.Gender == "F" ? "pas d'équipe féminine dans ce club" : "pour ce filtre")));
                 return;
             }
             var logo = Gfx.Logo(squad[0].ClubPtr, 80);
@@ -642,13 +675,13 @@ namespace FM27Scout
             var first = squad.Where(r => groups[r] == "Équipe première").ToList();
             var ages = first.Select(Game.Age).Where(a => a > 0).ToList();
             long wages = squad.Where(r => r.Wage > 0).Sum(r => r.Wage);
-            ClubInfo.Children.Add(InfoTile("Joueurs sous contrat", squad.Count.ToString()));
-            ClubInfo.Children.Add(InfoTile("Âge moyen (équipe 1)", ages.Count > 0 ? $"{ages.Average():F1} ans" : "—"));
-            ClubInfo.Children.Add(InfoTile("CA moyen (équipe 1)", first.Count > 0 ? first.Average(r => r.CA).ToString("F0") : "—"));
-            ClubInfo.Children.Add(InfoTile("Valeur de l'effectif", Money(squad.Where(r => r.Value > 0).Sum(r => r.Value))));
-            ClubInfo.Children.Add(InfoTile("Masse salariale", $"{Money(wages)}/sem. · {Money(wages * 52)}/an"));
+            ClubInfo.Children.Add(InfoTile(L.T("Joueurs sous contrat"), squad.Count.ToString()));
+            ClubInfo.Children.Add(InfoTile(L.T("Âge moyen (équipe 1)"), ages.Count > 0 ? L.F("{0:F1} ans", ages.Average()) : "—"));
+            ClubInfo.Children.Add(InfoTile(L.T("CA moyen (équipe 1)"), first.Count > 0 ? first.Average(r => r.CA).ToString("F0") : "—"));
+            ClubInfo.Children.Add(InfoTile(L.T("Valeur de l'effectif"), Money(squad.Where(r => r.Value > 0).Sum(r => r.Value))));
+            ClubInfo.Children.Add(InfoTile(L.T("Masse salariale"), L.F("{0}/sem. · {1}/an", Money(wages), Money(wages * 52))));
             int ending = squad.Count(r => { int m = Game.ContractMonths(r); return m >= 0 && m <= 12; });
-            ClubInfo.Children.Add(InfoTile("Contrats finissant ≤ 12 mois", Game.HasDate ? ending.ToString() : "date ?", ending > 0 ? BMid : null));
+            ClubInfo.Children.Add(InfoTile(L.T("Contrats finissant ≤ 12 mois"), Game.HasDate ? ending.ToString() : L.T("date ?"), ending > 0 ? BMid : null));
 
             void Chip(string text, string grp)
             {
@@ -656,18 +689,18 @@ namespace FM27Scout
                 b.Click += (_, _) => { _teamFilter = grp; ShowClub(); };
                 TeamChips.Children.Add(b);
             }
-            Chip($"Tout l'effectif ({squad.Count})", null);
+            Chip(L.F("Tout l'effectif ({0})", squad.Count), null);
             foreach (var grp in new[] { "Équipe première", "Réserve / équipe B", "U21", "U18", "Réserve / jeunes" })
             {
                 int n = groups.Values.Count(v => v == grp);
-                if (n > 0) Chip($"{grp} ({n})", grp);
+                if (n > 0) Chip($"{L.T(grp)} ({n})", grp);
             }
 
             var shown = squad.Where(r => _teamFilter == null || groups[r] == _teamFilter).OrderByDescending(r => r.CA);
             var extras = new List<Extra>
             {
-                new("Equipe", "Équipe", typeof(string), r => groups.GetValueOrDefault(r, ""), 140),
-                new("Prog", "Prog. CA", typeof(int), r => Features.Progress(r), 70),
+                new("Equipe", L.T("Équipe"), typeof(string), r => L.T(groups.GetValueOrDefault(r, "")), 140),
+                new("Prog", L.T("Prog. CA"), typeof(int), r => Features.Progress(r), 70),
             };
             Bind(ClubGrid, MakeTable(shown, extras), extras);
         }
@@ -687,7 +720,7 @@ namespace FM27Scout
             PlayerCard.Children.Clear();
             if (r == null)
             {
-                PlayerCard.Children.Add(Card(T("Cherche un joueur dans la barre du haut, ou double-clique sur une ligne d'un tableau.", 14, BDim)));
+                PlayerCard.Children.Add(Card(T(L.T("Cherche un joueur dans la barre du haut, ou double-clique sur une ligne d'un tableau."), 14, BDim)));
                 return;
             }
 
@@ -695,24 +728,30 @@ namespace FM27Scout
             // nom cliquable : copie dans le presse-papiers (pour le coller dans la recherche de FM)
             var nameTb = T(r.Name, 26, BText, true);
             nameTb.Cursor = Cursors.Hand;
-            nameTb.ToolTip = "Cliquer pour copier le nom";
+            nameTb.ToolTip = L.T("Cliquer pour copier le nom");
             nameTb.MouseLeftButtonUp += (_, _) => CopyName(r.Name, null);
             head.Children.Add(nameTb);
             int age = Game.Age(r);
             var sub = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 2) };
             var logo = Gfx.Logo(r.ClubPtr, 48);
             if (logo != null) sub.Children.Add(new System.Windows.Controls.Image { Source = logo, Width = 22, Height = 22, Margin = new Thickness(0, 0, 6, 0) });
-            sub.Children.Add(T($"{(r.Club == "" ? "Sans club" : r.Club)}  ·  {(age < 0 ? "âge inconnu" : age + " ans")}{(r.BirthYear > 0 ? $" (né le {Game.FmDate(r.BirthYear, r.BirthDoy)})" : "")}  ·  {Db.BestPositions(r)}{(r.Female ? "  ·  football féminin" : "")}", 14, BDim));
+            string clubTxt = r.Club == "" ? L.T("Sans club") : r.Club;
+            string ageTxt = age < 0 ? L.T("âge inconnu") : L.F("{0} ans", age);
+            string bornTxt = r.BirthYear > 0 ? " " + L.F("(né le {0})", Game.FmDate(r.BirthYear, r.BirthDoy)) : "";
+            string femTxt = r.Female ? "  ·  " + L.T("football féminin") : "";
+            sub.Children.Add(T($"{clubTxt}  ·  {ageTxt}{bornTxt}  ·  {Db.BestPositions(r)}{femTxt}", 14, BDim));
             head.Children.Add(sub);
-            head.Children.Add(T($"Valeur {Money(r.Value)}  ·  Salaire {(r.Wage < 0 ? "—" : Money(r.Wage) + "/sem.")}  ·  Fin de contrat {(r.ExpYear == 0 ? "—" : Game.FmDate(r.ExpYear, r.ExpDoy))}", 13, BDim));
+            string wageTxt = r.Wage < 0 ? "—" : L.F("{0}/sem.", Money(r.Wage));
+            string endTxt = r.ExpYear == 0 ? "—" : Game.FmDate(r.ExpYear, r.ExpDoy);
+            head.Children.Add(T(L.F("Valeur {0}  ·  Salaire {1}  ·  Fin de contrat {2}", Money(r.Value), wageTxt, endTxt), 13, BDim));
             var actions = new WrapPanel { Margin = new Thickness(0, 10, 0, 0) };
-            var copyBtn = new Button { Content = "Copier le nom", Style = (Style)Application.Current.Resources["Primary"] };
+            var copyBtn = new Button { Content = L.T("Copier le nom"), Style = (Style)Application.Current.Resources["Primary"] };
             copyBtn.Click += (_, _) => CopyName(r.Name, copyBtn);
             actions.Children.Add(copyBtn);
             actions.Children.Add(ShortButton(r));
-            actions.Children.Add(Btn("Comparer (joueur A)", () => { _cmpA = r; ShowCompare(); ShowPage(NavCompare); }, true));
-            actions.Children.Add(Btn("Comparer (joueur B)", () => { _cmpB = r; ShowCompare(); ShowPage(NavCompare); }));
-            if (r.Club != "") actions.Children.Add(Btn($"Alertes : {r.Club}", () => { Settings.Cur.AlertClub = r.Club; Settings.Save(); BuildClubList(); ShowAlerts(); ShowPage(NavAlerts); }));
+            actions.Children.Add(Btn(L.T("Comparer (joueur A)"), () => { _cmpA = r; ShowCompare(); ShowPage(NavCompare); }, true));
+            actions.Children.Add(Btn(L.T("Comparer (joueur B)"), () => { _cmpB = r; ShowCompare(); ShowPage(NavCompare); }));
+            if (r.Club != "") actions.Children.Add(Btn(L.F("Alertes : {0}", r.Club), () => { Settings.Cur.AlertClub = r.Club; Settings.Save(); BuildClubList(); ShowAlerts(); ShowPage(NavAlerts); }));
             head.Children.Add(actions);
 
             var top = new Grid();
@@ -731,9 +770,9 @@ namespace FM27Scout
             PlayerCard.Children.Add(Card(top, 18));
 
             var hidden = new WrapPanel();
-            foreach (var (k, fr) in Names.Hidden) hidden.Children.Add(StatTile(fr, Db.Stat(r, k), k));
+            foreach (var (k, fr) in Names.Hidden) hidden.Children.Add(StatTile(L.T(fr), Db.Stat(r, k), k));
             var hs = new StackPanel();
-            hs.Children.Add(T("Stats cachées", 15, BText, true));
+            hs.Children.Add(T(L.T("Stats cachées"), 15, BText, true));
             hs.Children.Add(hidden);
             PlayerCard.Children.Add(Card(hs));
 
@@ -742,24 +781,24 @@ namespace FM27Scout
             for (int c = 0; c < Names.Groups.Length; c++)
             {
                 var col = new StackPanel { Margin = new Thickness(0, 0, 16, 0) };
-                col.Children.Add(T(Names.Groups[c].cat, 12, BDim, true));
-                foreach (var (k, fr) in Names.Groups[c].attrs) col.Children.Add(AttrLine(fr, Db.Stat(r, k), k));
+                col.Children.Add(T(L.T(Names.Groups[c].cat), 12, BDim, true));
+                foreach (var (k, fr) in Names.Groups[c].attrs) col.Children.Add(AttrLine(L.T(fr), Db.Stat(r, k), k));
                 Grid.SetColumn(col, c); attrs.Children.Add(col);
             }
             PlayerCard.Children.Add(Card(attrs));
 
             var roles = new StackPanel();
-            roles.Children.Add(T("Notes par rôle (/100)", 15, BText, true));
+            roles.Children.Add(T(L.T("Notes par rôle (/100)"), 15, BText, true));
             foreach (var (nom, n) in Db.Roles.Select(x => (x.Nom, Db.Rating(r, x))).OrderByDescending(x => x.Item2))
             {
                 var line = new DockPanel { Margin = new Thickness(0, 4, 0, 0) };
-                var name = T(nom, 13); name.Width = 190; line.Children.Add(name);
+                var name = T(L.T(nom), 13); name.Width = 190; line.Children.Add(name);
                 var val = T(n.ToString(), 13, BText, true); val.Width = 40; DockPanel.SetDock(val, Dock.Right); line.Children.Add(val);
                 line.Children.Add(new Border { Height = 8, Width = Math.Max(4, n * 3.2), HorizontalAlignment = HorizontalAlignment.Left, CornerRadius = new CornerRadius(4),
                     Background = n >= 75 ? BGood : n >= 60 ? BOk : n >= 45 ? BMid : BBad });
                 roles.Children.Add(line);
             }
-            roles.Children.Add(T("Pondérations modifiables : %APPDATA%\\FM27Scout\\roles.json", 11, BDim));
+            roles.Children.Add(T(L.T("Pondérations modifiables : %APPDATA%\\FM27Scout\\roles.json"), 11, BDim));
             PlayerCard.Children.Add(Card(roles));
             PlayerCard.Children.Add(TrainingCard(r));
             PlayerCard.Children.Add(ProgressCard(r));
@@ -775,10 +814,10 @@ namespace FM27Scout
                 try { Clipboard.SetText(name); break; }
                 catch (System.Runtime.InteropServices.COMException) { Thread.Sleep(50); }
             }
-            if (Application.Current.MainWindow is MainWindow w) w.SetStatus(true, $"« {name} » copié : colle-le (Ctrl+V) dans la recherche de FM27");
+            if (Application.Current.MainWindow is MainWindow w) w.SetStatus(true, L.F("« {0} » copié : colle-le (Ctrl+V) dans la recherche de FM27", name));
             if (feedback == null) return;
             var old = feedback.Content;
-            feedback.Content = "Copié";
+            feedback.Content = L.T("Copié");
             var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
             t.Tick += (_, _) => { feedback.Content = old; t.Stop(); };
             t.Start();
@@ -787,7 +826,7 @@ namespace FM27Scout
         static Border BigTile(string label, int v)
         {
             var sp = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
-            sp.Children.Add(T(label == "CA" ? "Capacité actuelle" : "Potentiel", 11, BDim));
+            sp.Children.Add(T(L.T(label == "CA" ? "Capacité actuelle" : "Potentiel"), 11, BDim));
             var n = T(v.ToString(), 34, label == "PA" ? BAccent : BText, true); n.HorizontalAlignment = HorizontalAlignment.Center;
             sp.Children.Add(n);
             return new Border { Background = BPanel2, CornerRadius = new CornerRadius(6), Padding = new Thickness(18, 8, 18, 8), Margin = new Thickness(10, 0, 0, 0), Child = sp, MinWidth = 120 };
@@ -816,7 +855,7 @@ namespace FM27Scout
         void BuildSearchList()
         {
             SearchList.Items.Clear();
-            foreach (var s in Db.Searches) SearchList.Items.Add(new ListBoxItem { Content = T(s.Nom, 13), Tag = s });
+            foreach (var s in Db.Searches) SearchList.Items.Add(new ListBoxItem { Content = T(L.T(s.Nom), 13), Tag = s });
             if (SearchList.Items.Count > 0) SearchList.SelectedIndex = 0;
         }
 
@@ -830,7 +869,7 @@ namespace FM27Scout
             if (SearchList.SelectedItem is not ListBoxItem { Tag: Db.Search s }) return;
             _searchRes = Game.Rows.Count == 0 ? new() : Db.Run(s);
             Bind(SearchGrid, MakeTable(_searchRes, new()), new());
-            SearchInfo.Text = Game.Rows.Count == 0 ? "Base pas encore lue" : $"{s.Nom} — {_searchRes.Count} résultat(s)";
+            SearchInfo.Text = Game.Rows.Count == 0 ? L.T("Base pas encore lue") : L.F("{0} — {1} résultat(s)", L.T(s.Nom), _searchRes.Count);
         }
 
         void ExportSearch_Click(object s, RoutedEventArgs e) =>
@@ -842,10 +881,10 @@ namespace FM27Scout
             try
             {
                 string path = Db.ExportCsv(rows, name);
-                if (MessageBox.Show($"{rows.Count} joueurs exportés :\n{path}\n\nOuvrir le fichier ?", "FM27 Assistant", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                if (MessageBox.Show(L.F("{0} joueurs exportés :\n{1}\n\nOuvrir le fichier ?", rows.Count, path), "FM27 Assistant", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
                     System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true });
             }
-            catch (Exception ex) { MessageBox.Show("Export impossible : " + ex.Message, "FM27 Assistant"); }
+            catch (Exception ex) { MessageBox.Show(L.F("Export impossible : {0}", ex.Message), "FM27 Assistant"); }
         }
 
         // ============================================================ radar de scouting
@@ -871,7 +910,7 @@ namespace FM27Scout
         {
             var f = Db.Radar;
             RadarFilters.Children.Clear();
-            RadarFilters.Children.Add(new TextBlock { Text = "Filtres", Style = (Style)FindResource("H2"), Margin = new Thickness(0, 0, 0, 6) });
+            RadarFilters.Children.Add(new TextBlock { Text = L.T("Filtres"), Style = (Style)FindResource("H2"), Margin = new Thickness(0, 0, 0, 6) });
 
             void Stepper(string label, string value, Action minus, Action plus)
             {
@@ -882,23 +921,23 @@ namespace FM27Scout
                 row.Children.Add(Btn("+", () => { plus(); RadarChanged(); }));
                 RadarFilters.Children.Add(row);
             }
-            Stepper("Âge min", $"{f.AgeMin} ans", () => f.AgeMin = Math.Max(14, f.AgeMin - 1), () => f.AgeMin = Math.Min(f.AgeMax, f.AgeMin + 1));
-            Stepper("Âge max", $"{f.AgeMax} ans", () => f.AgeMax = Math.Max(f.AgeMin, f.AgeMax - 1), () => f.AgeMax = Math.Min(45, f.AgeMax + 1));
+            Stepper(L.T("Âge min"), L.F("{0} ans", f.AgeMin), () => f.AgeMin = Math.Max(14, f.AgeMin - 1), () => f.AgeMin = Math.Min(f.AgeMax, f.AgeMin + 1));
+            Stepper(L.T("Âge max"), L.F("{0} ans", f.AgeMax), () => f.AgeMax = Math.Max(f.AgeMin, f.AgeMax - 1), () => f.AgeMax = Math.Min(45, f.AgeMax + 1));
             Stepper("CA min", f.CaMin.ToString(), () => f.CaMin = Math.Max(0, f.CaMin - 5), () => f.CaMin = Math.Min(200, f.CaMin + 5));
             Stepper("PA min", f.PaMin.ToString(), () => f.PaMin = Math.Max(0, f.PaMin - 5), () => f.PaMin = Math.Min(200, f.PaMin + 5));
             int vi = Math.Max(0, Array.IndexOf(ValueSteps, f.ValeurMax));
-            Stepper("Valeur max", f.ValeurMax < 0 ? "illimitée" : Money(f.ValeurMax),
+            Stepper(L.T("Valeur max"), f.ValeurMax < 0 ? L.T("illimitée") : Money(f.ValeurMax),
                 () => f.ValeurMax = ValueSteps[Math.Max(0, vi - 1)], () => f.ValeurMax = ValueSteps[Math.Min(ValueSteps.Length - 1, vi + 1)]);
-            if (!Game.HasDate) RadarFilters.Children.Add(T("Date de jeu inconnue : filtre d'âge ignoré (saisis-la en haut).", 11, BMid));
+            if (!Game.HasDate) RadarFilters.Children.Add(T(L.T("Date de jeu inconnue : filtre d'âge ignoré (saisis-la en haut)."), 11, BMid));
 
             var ph = new DockPanel { Margin = new Thickness(0, 12, 0, 4) };
-            if (f.Postes.Count > 0) { var clr = Btn("Effacer", () => { f.Postes.Clear(); RadarChanged(); }); DockPanel.SetDock(clr, Dock.Right); ph.Children.Add(clr); }
-            ph.Children.Add(T(f.Postes.Count == 0 ? "Postes : tous" : "Postes : " + string.Join(", ", f.Postes.Select(k => Db.PositionFr[k])), 13, BText, true));
+            if (f.Postes.Count > 0) { var clr = Btn(L.T("Effacer"), () => { f.Postes.Clear(); RadarChanged(); }); DockPanel.SetDock(clr, Dock.Right); ph.Children.Add(clr); }
+            ph.Children.Add(T(f.Postes.Count == 0 ? L.T("Postes : tous") : L.F("Postes : {0}", string.Join(", ", f.Postes.Select(Db.PositionLabel))), 13, BText, true));
             RadarFilters.Children.Add(ph);
             RadarFilters.Children.Add(Pitch(f));
 
             SortChips.Children.Clear();
-            SortChips.Children.Add(new TextBlock { Text = "Trier par", Foreground = BDim, Margin = new Thickness(0, 6, 8, 0) });
+            SortChips.Children.Add(new TextBlock { Text = L.T("Trier par"), Foreground = BDim, Margin = new Thickness(0, 6, 8, 0) });
             IEnumerable<(string key, string label)> sorts = QuickSorts;
             if (_allStats)
                 sorts = sorts.Concat(Names.Groups.SelectMany(gr => gr.attrs).Select(x => (x.k, x.fr))).Concat(Names.Hidden)
@@ -906,12 +945,12 @@ namespace FM27Scout
             foreach (var (key, label) in sorts)
             {
                 bool on = f.Tri == key;
-                var b = new ToggleButton { Content = on ? $"{label} {(f.Decroissant ? "↓" : "↑")}" : label, IsChecked = on };
+                var b = new ToggleButton { Content = on ? $"{L.T(label)} {(f.Decroissant ? "↓" : "↑")}" : L.T(label), IsChecked = on };
                 var k = key;
                 b.Click += (_, _) => { if (f.Tri == k) f.Decroissant = !f.Decroissant; else { f.Tri = k; f.Decroissant = k != "Age"; } RadarChanged(); };
                 SortChips.Children.Add(b);
             }
-            SortChips.Children.Add(Btn(_allStats ? "Moins de stats ▴" : "Toutes les stats ▾", () => { _allStats = !_allStats; BuildRadarFilters(); }));
+            SortChips.Children.Add(Btn(L.T(_allStats ? "Moins de stats ▴" : "Toutes les stats ▾"), () => { _allStats = !_allStats; BuildRadarFilters(); }));
         }
 
         UIElement Pitch(Db.RadarFilter f)
@@ -926,7 +965,7 @@ namespace FM27Scout
             DrawRect(2, 3, 96, 94); DrawRect(50, 3, 0.3, 94); DrawRect(2, 25, 14, 50); DrawRect(84, 25, 14, 50);
             foreach (var (key, x, y) in PitchSpots)
             {
-                var b = new ToggleButton { Content = Db.PositionFr[key], IsChecked = f.Postes.Contains(key), Width = 44, Height = 26, Padding = new Thickness(0), Margin = new Thickness(0), FontSize = 11 };
+                var b = new ToggleButton { Content = Db.PositionLabel(key), IsChecked = f.Postes.Contains(key), Width = 44, Height = 26, Padding = new Thickness(0), Margin = new Thickness(0), FontSize = 11 };
                 if (b.IsChecked != true) b.Background = Br("#40FFFFFF");
                 var k = key;
                 b.Click += (_, _) => { if (!f.Postes.Remove(k)) f.Postes.Add(k); RadarChanged(); };
@@ -939,19 +978,19 @@ namespace FM27Scout
         void RunRadar()
         {
             var f = Db.Radar;
-            if (Game.Rows.Count == 0) { RadarGrid.ItemsSource = null; RadarInfo.Text = "Base pas encore lue"; return; }
+            if (Game.Rows.Count == 0) { RadarGrid.ItemsSource = null; RadarInfo.Text = L.T("Base pas encore lue"); return; }
             var (all, fresh) = Db.CheckRadar(false);
             var freshSet = fresh.Select(r => r.Id).ToHashSet();
             _radarRes = fresh.Concat(all.Where(r => !freshSet.Contains(r.Id))).ToList();
             var extras = new List<Extra>
             {
-                new("Nouveau", "", typeof(string), r => freshSet.Contains(r.Id) ? "NOUVEAU" : "", 80, true),
-                new("Tri", Names.Of(f.Tri), typeof(long), r => { long v = Db.SortValue(r, f.Tri); return v < 0 ? null : (object)v; }, 110, true),
+                new("Nouveau", "", typeof(string), r => freshSet.Contains(r.Id) ? L.T("NOUVEAU") : "", 80, true),
+                new("Tri", L.T(Names.Of(f.Tri)), typeof(long), r => { long v = Db.SortValue(r, f.Tri); return v < 0 ? null : (object)v; }, 110, true),
             };
             // la valeur sert déjà de colonne : le tri par valeur s'affiche en £
             if (f.Tri != "Valeur") extras[1] = extras[1] with { Type = typeof(int), Value = r => { long v = Db.SortValue(r, f.Tri); return v < 0 ? null : (object)(int)v; } };
             Bind(RadarGrid, MakeTable(_radarRes, extras), extras);
-            RadarInfo.Text = $"{all.Count}{(all.Count >= 500 ? "+" : "")} joueur(s)" + (fresh.Count > 0 ? $" · {fresh.Count} nouveau(x)" : "");
+            RadarInfo.Text = L.F("{0}{1} joueur(s)", all.Count, all.Count >= 500 ? "+" : "") + (fresh.Count > 0 ? " · " + L.F("{0} nouveau(x)", fresh.Count) : "");
         }
 
         void RadarSeen_Click(object s, RoutedEventArgs e) { Db.CheckRadar(true); RunRadar(); RadarBadge.Visibility = Visibility.Collapsed; }
@@ -988,9 +1027,9 @@ namespace FM27Scout
         {
             AlertChips.Children.Clear();
             var club = Game.Rows.FirstOrDefault(r => r.Club == Settings.Cur.AlertClub && r.ClubPtr != 0);
-            if (club == null) { AlertGrid.ItemsSource = null; AlertInfo.Text = "Choisis un club à gauche"; return; }
+            if (club == null) { AlertGrid.ItemsSource = null; AlertInfo.Text = L.T("Choisis un club à gauche"); return; }
             var groups = Db.Alerts(club.ClubPtr);
-            AlertInfo.Text = $"{Settings.Cur.AlertClub} — {groups.Sum(gr => gr.joueurs.Count)} alerte(s)";
+            AlertInfo.Text = L.F("{0} — {1} alerte(s)", Settings.Cur.AlertClub, groups.Sum(gr => gr.joueurs.Count));
 
             void Chip(string label, string cat)
             {
@@ -998,8 +1037,8 @@ namespace FM27Scout
                 b.Click += (_, _) => { _alertCat = cat; ShowAlerts(); };
                 AlertChips.Children.Add(b);
             }
-            Chip("Toutes", null);
-            foreach (var (titre, j) in groups) Chip($"{titre} ({j.Count})", titre);
+            Chip(L.T("Toutes"), null);
+            foreach (var (titre, j) in groups) Chip($"{L.T(titre)} ({j.Count})", titre);
 
             var items = groups.Where(gr => _alertCat == null || gr.titre == _alertCat)
                 .SelectMany(gr => gr.joueurs.Select(x => (x.r, gr.titre, x.detail))).ToList();
@@ -1009,8 +1048,8 @@ namespace FM27Scout
             foreach (var (r, titre, detail) in items) { rows.Add(r); alertOf.TryAdd(r, (titre, detail)); }
             var extras = new List<Extra>
             {
-                new("Alerte", "Alerte", typeof(string), r => alertOf[r].titre, 260, true),
-                new("Detail", "Détail", typeof(string), r => alertOf[r].detail, 170),
+                new("Alerte", L.T("Alerte"), typeof(string), r => L.T(alertOf[r].titre), 260, true),
+                new("Detail", L.T("Détail"), typeof(string), r => alertOf[r].detail, 170),
             };
             Bind(AlertGrid, MakeTable(rows.Distinct(), extras), extras);
         }
@@ -1028,11 +1067,11 @@ namespace FM27Scout
         {
             list.Items.Clear();
             List<PlayerRow> rows;
-            if (box.Text.Trim().Length >= 2) { rows = FindByName(box.Text, 100); info.Text = $"{rows.Count} résultat(s) dans toute la base"; }
+            if (box.Text.Trim().Length >= 2) { rows = FindByName(box.Text, 100); info.Text = L.F("{0} résultat(s) dans toute la base", rows.Count); }
             else
             {
                 rows = Game.Rows.Where(r => r.Club == Settings.Cur.MyClub && Settings.Cur.MyClub != "" && Game.Shown(r)).OrderByDescending(r => r.CA).ToList();
-                info.Text = Settings.Cur.MyClub == "" ? "Tape un nom (choisis ton club dans « Mon club » pour voir ton effectif ici)" : $"Ton effectif ({rows.Count}) — tape un nom pour chercher partout";
+                info.Text = Settings.Cur.MyClub == "" ? L.T("Tape un nom (choisis ton club dans « Mon club » pour voir ton effectif ici)") : L.F("Ton effectif ({0}) — tape un nom pour chercher partout", rows.Count);
             }
             foreach (var r in rows) list.Items.Add(PlayerItem(r));
         }
@@ -1050,7 +1089,7 @@ namespace FM27Scout
             var a = _cmpA; var b = _cmpB;
             if (a == null || b == null)
             {
-                CompareBox.Children.Add(Card(T("Choisis un joueur à gauche et un joueur à droite.", 14, BDim)));
+                CompareBox.Children.Add(Card(T(L.T("Choisis un joueur à gauche et un joueur à droite."), 14, BDim)));
                 if (a == null && b == null) return;
             }
             CompareBox.Children.Add(RadarCard(a, b));
@@ -1080,14 +1119,14 @@ namespace FM27Scout
                 Add(T(vb < 0 ? "—" : vb.ToString(), 14, va < 0 || vb < 0 || sa == sb ? BText : sb > sa ? BGood : BBad, true), 2);
                 row++;
             }
-            Section("Profil");
-            Line("Âge", Game.Age, "AgeLow");
-            Line("Capacité actuelle", r => r.CA, "CA"); Line("Potentiel", r => r.PA, "PA");
-            Section("Stats cachées");
-            foreach (var (k, fr) in Names.Hidden) Line(fr, r => Db.Stat(r, k), k);
-            foreach (var g in Names.Groups) { Section(g.cat); foreach (var (k, fr) in g.attrs) Line(fr, r => Db.Stat(r, k), k); }
-            Section("Notes par rôle");
-            foreach (var role in Db.Roles) Line(role.Nom, r => Db.Rating(r, role), "role");
+            Section(L.T("Profil"));
+            Line(L.T("Âge"), Game.Age, "AgeLow");
+            Line(L.T("Capacité actuelle"), r => r.CA, "CA"); Line(L.T("Potentiel"), r => r.PA, "PA");
+            Section(L.T("Stats cachées"));
+            foreach (var (k, fr) in Names.Hidden) Line(L.T(fr), r => Db.Stat(r, k), k);
+            foreach (var g in Names.Groups) { Section(L.T(g.cat)); foreach (var (k, fr) in g.attrs) Line(L.T(fr), r => Db.Stat(r, k), k); }
+            Section(L.T("Notes par rôle"));
+            foreach (var role in Db.Roles) Line(L.T(role.Nom), r => Db.Rating(r, role), "role");
             CompareBox.Children.Add(Card(grid));
         }
     }

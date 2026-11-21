@@ -52,7 +52,14 @@ namespace FM27Scout
             16 => "1 semaine",
             _ => PlayerOptions.TryGetValue(want, out var l) ? l : "?",
         };
-        public static string OptionShort(int want) => want >= 9 ? "Repos " + OptionLabel(want) : OptionLabel(want);
+        /// <summary>Libellé affiché (dans la langue de l'interface) d'un choix d'intensité individuelle ou d'un repos.</summary>
+        public static string OptionShort(int want) => want switch
+        {
+            9 => L.T("Repos 1 jour"),
+            >= 10 and <= 14 => L.F("Repos {0} jours", want - 8),
+            16 => L.T("Repos 1 semaine"),
+            _ => L.T(OptionLabel(want)),
+        };
         static int Rest(int days) => days >= 7 ? 16 : 8 + Math.Clamp(days, 1, 6);     // valeurs FM : 9 = 1 jour … 14 = 6 jours, 16 = 1 semaine
 
         public sealed class Group { public List<Player> Members = new(); public string Name = ""; public string Why = ""; }
@@ -68,6 +75,7 @@ namespace FM27Scout
         public sealed class Report
         {
             public DateTime At = DateTime.Now;
+            public string Lang = L.Lang;                       // langue de ses textes (motifs, notes, erreurs)
             public bool Applied;
             public string[] TeamBefore = new string[5], TeamAfter = new string[5];
             public List<Player> Players = new();
@@ -79,7 +87,9 @@ namespace FM27Scout
             public int Orders;
         }
 
-        public static Report Last;
+        static Report s_last;
+        /// <summary>Dernière analyse ; oubliée si la langue de l'interface a changé depuis (ses textes sont dans l'ancienne langue).</summary>
+        public static Report Last => s_last != null && s_last.Lang == L.Lang ? s_last : null;
 
         // ================================================================== lecture
 
@@ -87,7 +97,7 @@ namespace FM27Scout
         {
             var list = Bridge.Read1("TeamTrainingReference", ctx.TeamTraining, pSquad.ToString());
             var persons = Bridge.Items(list).Select(x => Bridge.PairOf(x, kPerson)).Where(p => p != 0).Distinct().ToList();
-            if (persons.Count == 0) throw new Exception("liste des joueurs vide (ouvre une fois Entraînement → Intensité dans FM)");
+            if (persons.Count == 0) throw new Exception(L.T("liste des joueurs vide (ouvre une fois Entraînement → Intensité dans FM)"));
             var reqs = new List<(string, string, string)>();
             foreach (var p in persons)
                 foreach (var prop in new[] { pUnid, pCond, pSharp, pFatg, pShort })
@@ -149,7 +159,7 @@ namespace FM27Scout
                 {
                     string n = Bridge.DisplayName(Bridge.Str(vals[i * 3]));
                     if (string.IsNullOrWhiteSpace(n)) n = Bridge.DisplayName(Bridge.Str(vals[i * 3 + 1]));
-                    res[i].Name = string.IsNullOrWhiteSpace(n) ? $"Entraîneur {i + 1}" : n;
+                    res[i].Name = string.IsNullOrWhiteSpace(n) ? L.F("Entraîneur {0}", i + 1) : n;
                     res[i].Role = Bridge.Str(vals[i * 3 + 2]) ?? "";
                 }
             }
@@ -168,7 +178,7 @@ namespace FM27Scout
             {
                 var probe = coaches.Where(c => c.Enabled[cat] && !c.Checked[cat]).ToList();
                 if (probe.Count == 0) continue;
-                progress($"Mesure des notes : {CatName(cat)}…");
+                progress(L.F("Mesure des notes : {0}…", L.T(CatName(cat))));
                 var done = new List<Coach>();
                 try
                 {
@@ -235,9 +245,9 @@ namespace FM27Scout
             if (plan - now < 1.5)
             {
                 foreach (var c in coaches) Array.Copy(c.Checked, c.Plan, 9);
-                notes.Add($"affectations actuelles déjà au niveau (écart {plan - now:+0.0;-0.0;0}) : on n'y touche pas");
+                notes.Add(L.F("affectations actuelles déjà au niveau (écart {0:+0.0;-0.0;0}) : on n'y touche pas", plan - now));
             }
-            else notes.Add($"affectations améliorées : qualité {now:0.0} → {plan:0.0}");
+            else notes.Add(L.F("affectations améliorées : qualité {0:0.0} → {1:0.0}", now, plan));
         }
 
         static void PlanCoachesGreedy(List<Coach> coaches, List<string> notes)
@@ -255,7 +265,7 @@ namespace FM27Scout
                 if (best == null)
                 {
                     best = coaches.Where(c => c.Enabled[cat] && c.Rating[cat] > 0).OrderByDescending(c => c.Rating[cat]).FirstOrDefault();
-                    if (best == null) { notes.Add($"{CatName(cat)} : aucun entraîneur capable"); continue; }
+                    if (best == null) { notes.Add(L.F("{0} : aucun entraîneur capable", L.T(CatName(cat)))); continue; }
                 }
                 best.Plan[cat] = true; lead[cat] = best.Rating[cat];
             }
@@ -275,24 +285,24 @@ namespace FM27Scout
             var set = Training.Set;
             foreach (var p in players)
             {
-                p.Want = -1; p.Why = "suit le réglage de l'équipe selon sa forme";
-                if (p.Cond < 0) { p.Injured = true; p.Why = "blessé : FM bloque son intensité, le centre médical gère sa reprise"; continue; }
+                p.Want = -1; p.Why = L.T("suit le réglage de l'équipe selon sa forme");
+                if (p.Cond < 0) { p.Injured = true; p.Why = L.T("blessé : FM bloque son intensité, le centre médical gère sa reprise"); continue; }
                 if (set.Expert && p.Row != null && set.Overrides.TryGetValue(Features.Key(p.Row).ToString(), out var o))
                 {
                     p.Want = o == Training.Normal ? 1 : o == "Double intensité" ? 2 : o == Training.NoPitch ? Rest(2) : 0;
-                    p.Why = "imposé (mode expert)";
+                    p.Why = L.T("imposé (mode expert)");
                     continue;
                 }
                 int inj = p.Row != null ? Db.Stat(p.Row, "InjuryProneness") : 10;
                 int age = p.Row != null ? Game.Age(p.Row) : 25;
-                if (p.Cond < 70) { int d = p.Cond < 60 ? 3 : 2; p.Want = Rest(d); p.Why = $"condition {p.Cond}% : repos complet {d} jours"; }
-                else if (p.Fatigue != int.MinValue && p.Fatigue >= 600) { p.Want = Rest(2); p.Why = $"très grosse fatigue ({p.Fatigue}) : repos complet 2 jours"; }
-                else if (p.Cond < 80) { p.Want = 0; p.Why = $"condition {p.Cond}% : il doit récupérer"; }
-                else if (p.Fatigue != int.MinValue && p.Fatigue >= 400) { p.Want = 0; p.Why = $"fatigue accumulée ({p.Fatigue}) : on allège"; }
-                else if (p.Fatigue != int.MinValue && p.Fatigue >= 200) { p.Want = 1; p.Why = $"fatigue en hausse ({p.Fatigue}) : pas plus que normal"; }
+                if (p.Cond < 70) { int d = p.Cond < 60 ? 3 : 2; p.Want = Rest(d); p.Why = L.F("condition {0}% : repos complet {1} jours", p.Cond, d); }
+                else if (p.Fatigue != int.MinValue && p.Fatigue >= 600) { p.Want = Rest(2); p.Why = L.F("très grosse fatigue ({0}) : repos complet 2 jours", p.Fatigue); }
+                else if (p.Cond < 80) { p.Want = 0; p.Why = L.F("condition {0}% : il doit récupérer", p.Cond); }
+                else if (p.Fatigue != int.MinValue && p.Fatigue >= 400) { p.Want = 0; p.Why = L.F("fatigue accumulée ({0}) : on allège", p.Fatigue); }
+                else if (p.Fatigue != int.MinValue && p.Fatigue >= 200) { p.Want = 1; p.Why = L.F("fatigue en hausse ({0}) : pas plus que normal", p.Fatigue); }
                 else if (p.Sharp is >= 0 and < 75 && p.Cond >= 95 && (p.Fatigue == int.MinValue || p.Fatigue < 50) && inj <= 12 && age <= 31)
-                { p.Want = 2; p.Why = $"manque de rythme ({p.Sharp}%) mais frais et peu fragile : double intensité"; }
-                else if (inj >= 16 && p.Fatigue != int.MinValue && p.Fatigue >= 100) { p.Want = 1; p.Why = "très fragile : on évite la double intensité"; }
+                { p.Want = 2; p.Why = L.F("manque de rythme ({0}%) mais frais et peu fragile : double intensité", p.Sharp); }
+                else if (inj >= 16 && p.Fatigue != int.MinValue && p.Fatigue >= 100) { p.Want = 1; p.Why = L.T("très fragile : on évite la double intensité"); }
             }
         }
 
@@ -316,7 +326,7 @@ namespace FM27Scout
             int want = matchCount >= 2 || Math.Abs(d) < 0.5 ? 0 : d > 0 ? 1 : 2;
             if (set.WeekProgramme.TryGetValue(key, out int prev) && prev != want && matchCount < 2 && Math.Abs(Math.Abs(d) - 0.5) < 0.5) want = prev;
             set.WeekProgramme[key] = want;
-            string why = matchCount >= 2 ? "2 matchs dans la semaine : équilibre" : $"retard attaque {att:0.0} / défense {def:0.0}";
+            string why = matchCount >= 2 ? L.T("2 matchs dans la semaine : équilibre") : L.F("retard attaque {0:0.0} / défense {1:0.0}", att, def);
             var p = Programmes[want];
             return (p.idx, p.unid, p.name, why);
         }
@@ -334,8 +344,22 @@ namespace FM27Scout
             var comp = Bridge.Read1("FixtureReference", pairs, pComp.ToString());
             int compId = Bridge.PairOf(comp, kPerson);
             string name = compId != 0 ? Bridge.DisplayName(Bridge.Str(Bridge.Read1("CompReference", Bridge.Context.Person(compId), pName.ToString()))) : "";
-            if (name.Contains("mical", StringComparison.OrdinalIgnoreCase) || name.Contains("riendl", StringComparison.OrdinalIgnoreCase)) return null;
+            if (IsFriendly(name)) return null;
             return Unpack(packed);
+        }
+
+        /// <summary>Compétition amicale, quelle que soit la langue de FM (français, anglais, portugais…).</summary>
+        static bool IsFriendly(string comp)
+        {
+            string f = Game.Fold(comp);
+            return new[] { "amica", "friendl", "amigav", "particular", "amistos", "amichevol", "freundschaft" }.Any(f.Contains);
+        }
+
+        /// <summary>Rôle d'entraîneur adjoint, quelle que soit la langue de FM.</summary>
+        static bool IsAssistant(string role)
+        {
+            string f = Game.Fold(role);
+            return new[] { "adjoint", "assistant", "adjunto", "assistente" }.Any(f.Contains);
         }
 
         /// <summary>Compte rendu lisible dans %APPDATA%\FM27Scout\pilote.txt.</summary>
@@ -394,6 +418,57 @@ namespace FM27Scout
             ["AttributeCommunication"] = new[] { "Couverture GB" }, ["AttributeKicking"] = new[] { "Relances (GB)" }, ["AttributeThrowing"] = new[] { "Relances (GB)" },
         };
 
+        /// <summary>
+        /// Mots reconnaissant chaque focus de FM dans une autre langue que le français (FM donne ses libellés dans la langue du jeu).
+        /// Chaque alias : mots (sans accents, minuscules) qui doivent tous figurer dans le libellé de FM.
+        /// </summary>
+        static readonly Dictionary<string, string[]> FocusAliases = new()
+        {
+            ["Vivacité"] = new[] { "vivacite", "quickness", "rapidez" },
+            ["Agilité et équilibre"] = new[] { "agilite", "agility", "agilidade" },
+            ["Résistance"] = new[] { "resistance", "strength", "forca" },
+            ["Endurance"] = new[] { "endurance", "resistencia" },
+            ["Conversion des occasions"] = new[] { "conversion", "concretiza", "finalizacao" },
+            ["Tirs"] = new[] { "tirs", "shooting", "remate" },
+            ["Création d'occasions"] = new[] { "creation", "criacao" },
+            ["Passes"] = new[] { "passes", "passing", "passe" },
+            ["Trente derniers mètres"] = new[] { "trente derniers", "final third", "ultimo terco" },
+            ["Progression du ballon"] = new[] { "progression", "progressao" },
+            ["Pressing"] = new[] { "pressing", "pressao" },
+            ["Placement défensif"] = new[] { "placement defensif", "defensive positioning", "posicionamento defensivo" },
+            ["Couverture GB"] = new[] { "couverture", "sweeping", "cobertura" },
+            ["Contenir l'adversaire"] = new[] { "contenir", "containment", "contencao" },
+            ["Déplacements offensifs"] = new[] { "deplacements offensifs", "attacking movement", "movimentacao ofensiva", "desmarcacao" },
+            ["Contrôle de balle"] = new[] { "controle de balle", "ball control", "controlo de bola", "controle de bola" },
+            ["Relances (GB)"] = new[] { "relances", "distribution", "reposicao", "distribuicao" },
+            ["Centres"] = new[] { "centres", "crossing", "cruzamento" },
+            ["Tacles"] = new[] { "tacles", "tackling", "desarme" },
+            ["Marquage"] = new[] { "marquage", "marking", "marcacao" },
+            ["Jeu aérien"] = new[] { "aerien", "aerial", "aereo" },
+            ["Conservation du ballon"] = new[] { "conservation", "ball retention", "retencao", "conservacao" },
+            ["Coups francs"] = new[] { "coups francs", "free kick", "livres" },
+            ["Tirer les corners"] = new[] { "corner", "cantos" },
+            ["Penalties"] = new[] { "penalt" },
+            ["Touches longues"] = new[] { "touches longues", "long throw", "lancamentos" },
+            ["Arrêts du gardien"] = new[] { "arrets", "shot stopping", "defesas" },
+            ["Prises de balle (GB)"] = new[] { "prises de balle", "handling", "jogo de maos", "segurar" },
+        };
+
+        // focus de rééducation (blessés) : jamais choisis
+        static readonly string[] RehabWords = { "reeduc", "rehab", "reabilit", "recuperacao" };
+
+        /// <summary>Le libellé FM d'un focus correspond-il au focus voulu (nom français exact, sinon alias dans une autre langue) ?</summary>
+        static bool IsFocus(string fmName, string wanted)
+        {
+            if (fmName == wanted) return true;
+            string f = Game.Fold(fmName);
+            if (RehabWords.Any(f.Contains)) return false;
+            return FocusAliases.TryGetValue(wanted, out var aliases)
+                && aliases.Any(a => a.Split(' ').All(f.Contains));
+        }
+
+        static bool s_focusLogged;
+
         static void PlanFocus(Bridge.Context ctx, List<Player> players, List<string> notes)
         {
             var who = players.Where(p => !p.Injured && p.Row != null).ToList();
@@ -412,9 +487,15 @@ namespace FM27Scout
                 {
                     if (!FocusOf.TryGetValue(key, out var names)) continue;
                     var hit = names.Select(n => options.FirstOrDefault(o => o.name == n)).FirstOrDefault(o => o.name != null);
-                    if (hit.name == null) continue;
+                    if (hit.name == null) hit = names.Select(n => options.FirstOrDefault(o => IsFocus(o.name, n))).FirstOrDefault(o => o.name != null);
+                    if (hit.name == null)
+                    {
+                        // libellés inconnus (autre langue de FM) : noter la liste une fois pour pouvoir l'ajouter
+                        if (!s_focusLogged && options.Count > 0) { s_focusLogged = true; Log.Info("Focus individuels proposés par FM : " + string.Join(" | ", options.Select(o => $"{o.name}={o.value}"))); }
+                        continue;
+                    }
                     p.Focus = hit.name; p.FocusValue = hit.value;
-                    p.FocusWhy = $"{Names.Of(key)} {Db.Stat(p.Row, key)} (rôle {plan.Role.ToLower()})";
+                    p.FocusWhy = L.F("{0} {1} (rôle {2})", L.T(Names.Of(key)), Db.Stat(p.Row, key), L.T(plan.Role).ToLower());
                     break;
                 }
             }
@@ -444,7 +525,7 @@ namespace FM27Scout
             int count = Bridge.Int(Bridge.Field(info, 1668771444), 0);
             var free = Bridge.Items(Bridge.Field(info, 1800099193)).Select(x => Bridge.PairOf(x, kPerson)).Where(x => x != 0).ToHashSet();
             var grouped = free.Count == 0 ? new HashSet<int>() : squad.Select(p => p.Person).Where(p => !free.Contains(p)).ToHashSet();
-            if (count > 0) rep.ExistingGroups.Add($"{count} groupe(s) déjà en place, {grouped.Count} joueur(s) déjà encadré(s) : on ne les touche pas");
+            if (count > 0) rep.ExistingGroups.Add(L.F("{0} groupe(s) déjà en place, {1} joueur(s) déjà encadré(s) : on ne les touche pas", count, grouped.Count));
             return grouped;
         }
 
@@ -468,8 +549,8 @@ namespace FM27Scout
                 // FM : exactement 3 joueurs par groupe (1 jeune + 2 tuteurs)
                 foreach (var m in ms) { g.Members.Add(byRow[m]); used.Add(m); }
                 string youngNames = g.Members[0].Name.Split(' ').Last();
-                g.Name = "Encadrement " + youngNames;
-                g.Why = $"{youngNames} encadré(s) par {string.Join(" et ", ms.Select(m => m.Name))}";
+                g.Name = L.F("Encadrement {0}", youngNames);                    // nom du groupe écrit dans FM, dans la langue de l'app
+                g.Why = L.F("{0} encadré(s) par {1} et {2}", youngNames, ms[0].Name, ms[1].Name);
                 res.Add(g);
             }
             return res;
@@ -479,7 +560,7 @@ namespace FM27Scout
         {
             Bridge.Send(evGroupNew, "TeamTrainingReference", ctx.TeamTraining, "[\"SI.Bindable.NullReference\",\"\"]");
             var cur = Bridge.Read1("TeamTrainingReference", ctx.TeamTraining, pCurGroup.ToString());
-            if (cur is not { ValueKind: JsonValueKind.Object } c || !c.TryGetProperty("pairs", out _)) throw new Exception("FM n'a pas créé le groupe");
+            if (cur is not { ValueKind: JsonValueKind.Object } c || !c.TryGetProperty("pairs", out _)) throw new Exception(L.T("FM n'a pas créé le groupe"));
             string gp = Pairs(c);
             Bridge.Send(evGroupSelect, "MentoringGroupReference", gp, "[\"SI.Bindable.NullReference\",\"\"]");
             string members = "[" + string.Join(",", g.Members.Select(m =>
@@ -497,11 +578,11 @@ namespace FM27Scout
         {
             var rep = new Report();
             var set = Training.Set;
-            progress("Connexion à FM27…");
+            progress(L.T("Connexion à FM27…"));
             var ctx = Bridge.Ctx();
 
             // --- joueurs (état réel)
-            progress("Lecture de l'état de forme des joueurs…");
+            progress(L.T("Lecture de l'état de forme des joueurs…"));
             rep.Players = ReadPlayers(ctx);
             PlanPlayers(rep.Players, rep.Notes);
             int tired = rep.Players.Count(p => p.Fatigue != int.MinValue && p.Fatigue >= 200) + rep.Players.Count(p => p.Cond is >= 0 and < 85);
@@ -519,9 +600,9 @@ namespace FM27Scout
             double attNeed = needs.Where(n => n.axis is "Finition" or "Création" or "Technique").Sum(n => Math.Max(0, n.gap));
             double defNeed = needs.Where(n => n.axis is "Défense" or "Jeu aérien").Sum(n => Math.Max(0, n.gap));
             rep.TeamAfter = weeks[0].TeamIntensity;
-            if (squadTired) rep.Notes.Add($"{tired} joueurs fatigués ou en condition < 85 % : intensité d'équipe prudente");
+            if (squadTired) rep.Notes.Add(L.F("{0} joueurs fatigués ou en condition < 85 % : intensité d'équipe prudente", tired));
 
-            progress("Lecture des réglages d'intensité actuels…");
+            progress(L.T("Lecture des réglages d'intensité actuels…"));
             var cur = Bridge.Read1("TeamTrainingReference", ctx.TeamTraining, pTeamRows.ToString());
             var rows = cur is { ValueKind: JsonValueKind.Object } one ? new List<JsonElement> { one } : Bridge.Items(cur).ToList();
             foreach (var r in rows)
@@ -531,7 +612,7 @@ namespace FM27Scout
             }
 
             // --- entraîneurs (notes réelles)
-            progress("Lecture des entraîneurs…");
+            progress(L.T("Lecture des entraîneurs…"));
             rep.Coaches = ReadCoaches(ctx, true);
             if (set.ApplyCoaches && rep.Coaches.Count > 0)
             {
@@ -544,10 +625,10 @@ namespace FM27Scout
             // --- programmes des semaines (uniquement en saison : FM gère lui-même la pré-saison)
             if (set.ApplyWeeks)
             {
-                progress("Calendrier…");
+                progress(L.T("Calendrier…"));
                 DateTime? first = null;
-                try { first = NextCompetitive(ctx); } catch (Exception e) { rep.Notes.Add("prochain match non lu : " + e.Message); }
-                if (first == null) rep.Notes.Add("prochain match amical ou inconnu : programmes de pré-saison laissés à FM");
+                try { first = NextCompetitive(ctx); } catch (Exception e) { rep.Notes.Add(L.T("prochain match non lu : ") + e.Message); }
+                if (first == null) rep.Notes.Add(L.T("prochain match amical ou inconnu : programmes de pré-saison laissés à FM"));
                 else
                     for (int k = 0; k < 4; k++)
                     {
@@ -561,37 +642,37 @@ namespace FM27Scout
 
             if (set.ApplyFocus)
             {
-                progress("Focus individuel (faiblesses)…");
+                progress(L.T("Focus individuel (faiblesses)…"));
                 try { PlanFocus(ctx, rep.Players, rep.Notes); }
-                catch (Exception e) { rep.Notes.Add("focus individuel non lu : " + e.Message); }
+                catch (Exception e) { rep.Notes.Add(L.T("focus individuel non lu : ") + e.Message); }
             }
 
             if (set.ApplyMentoring)
             {
-                progress("Groupes d'encadrement…");
+                progress(L.T("Groupes d'encadrement…"));
                 try { rep.Groups = PlanGroups(rep.Players, ReadGrouped(ctx, rep, rep.Players)); }
-                catch (Exception e) { rep.Notes.Add("groupes d'encadrement non lus : " + e.Message); }
+                catch (Exception e) { rep.Notes.Add(L.T("groupes d'encadrement non lus : ") + e.Message); }
             }
 
-            if (!apply) { Last = rep; SaveReport(rep); return rep; }
+            if (!apply) { s_last = rep; SaveReport(rep); return rep; }
 
             // ================================================================== application
             rep.Applied = true;
             if (set.ApplyTeam)
             {
-                progress("Intensité de l'équipe…");
+                progress(L.T("Intensité de l'équipe…"));
                 for (int i = 0; i < 5; i++)
                 {
                     if (rep.TeamBefore[i] == TeamOptions[TeamOption(rep.TeamAfter[i])]) continue;
                     try { Bridge.TeamIntensity(i, TeamOption(rep.TeamAfter[i])); rep.Orders++; }
-                    catch (Exception e) { rep.Errors.Add($"intensité « {Training.FormStates[i]} » : {e.Message}"); }
+                    catch (Exception e) { rep.Errors.Add(L.F("intensité « {0} » : {1}", L.T(Training.FormStates[i]), e.Message)); }
                 }
             }
             if (set.ApplyPlayers)
             {
-                progress("Intensité individuelle…");
+                progress(L.T("Intensité individuelle…"));
                 // l'adjoint (référence attendue par FM dans l'ordre) : l'entraîneur adjoint, sinon le premier entraîneur
-                int assistant = rep.Coaches.FirstOrDefault(c => c.Role.Contains("adjoint", StringComparison.OrdinalIgnoreCase))?.Person
+                int assistant = rep.Coaches.FirstOrDefault(c => IsAssistant(c.Role))?.Person
                               ?? rep.Coaches.FirstOrDefault(c => c.Person != ctx.Manager)?.Person ?? ctx.Manager;
                 foreach (var p in rep.Players.Where(p => !p.Injured))
                 {
@@ -609,24 +690,24 @@ namespace FM27Scout
             }
             if (set.ApplyCoaches)
             {
-                progress("Affectation des entraîneurs…");
+                progress(L.T("Affectation des entraîneurs…"));
                 // d'abord les ajouts, ensuite les retraits (un domaine n'est jamais vide en cours de route)
                 foreach (var c in rep.Coaches) for (int cat = 0; cat < 9; cat++)
                         if (c.Plan[cat] && !c.Checked[cat])
                             try { Bridge.Send(evAssign, "TeamTrainingReference", ctx.TeamTraining, Assign(c.Index, cat)); rep.Orders++; }
-                            catch (Exception e) { rep.Errors.Add($"{c.Name} → {CatName(cat)} : {e.Message}"); }
+                            catch (Exception e) { rep.Errors.Add($"{c.Name} → {L.T(CatName(cat))} : {e.Message}"); }
                 foreach (var c in rep.Coaches) for (int cat = 0; cat < 9; cat++)
                         if (!c.Plan[cat] && c.Checked[cat])
                             try { Bridge.Send(evUnassign, "TeamTrainingReference", ctx.TeamTraining, Assign(c.Index, cat)); rep.Orders++; }
-                            catch (Exception e) { rep.Errors.Add($"{c.Name} retiré de {CatName(cat)} : {e.Message}"); }
+                            catch (Exception e) { rep.Errors.Add(L.F("{0} retiré de {1} : {2}", c.Name, L.T(CatName(cat)), e.Message)); }
                 // vérification
                 var after = ReadCoaches(ctx, false);
                 int bad = after.Sum(a => { var c = rep.Coaches.FirstOrDefault(x => x.Index == a.Index); return c == null ? 0 : Enumerable.Range(0, 9).Count(k => a.Checked[k] != c.Plan[k]); });
-                if (bad > 0) rep.Errors.Add($"{bad} affectation(s) refusée(s) par FM");
+                if (bad > 0) rep.Errors.Add(L.F("{0} affectation(s) refusée(s) par FM", bad));
             }
             if (set.ApplyWeeks)
             {
-                progress("Programmes des semaines…");
+                progress(L.T("Programmes des semaines…"));
                 foreach (var (mon, name, _) in rep.Weeks)
                 {
                     var (idx, unid, _) = Programmes.First(p => p.name == name);
@@ -641,27 +722,27 @@ namespace FM27Scout
                             (1986096245, "System.Boolean", "\"True\""),
                             (1313885274, "SI.Bindable.DynamicReference", Bridge.Rec((kPerson, "SI.Core.DynamicNumber", "\"-8388609\""))))));
                     try { Bridge.Send(evWeek, "CalendarReference", ctx.Calendar, json); rep.Orders++; }
-                    catch (Exception e) { rep.Errors.Add($"semaine du {mon:dd/MM} : {e.Message}"); }
+                    catch (Exception e) { rep.Errors.Add(L.F("semaine du {0:dd/MM} : {1}", mon, e.Message)); }
                 }
             }
             if (set.ApplyFocus)
             {
-                progress("Focus individuel…");
+                progress(L.T("Focus individuel…"));
                 foreach (var p in rep.Players.Where(p => p.FocusValue > 0 && p.FocusTemplate != null && p.FocusBefore != p.Focus))
                     try { Bridge.Send(evFocus, "PlayerTrainingReference", ctx.PlayerTraining(p.Person), FocusJson(p)); rep.Orders++; }
-                    catch (Exception e) { rep.Errors.Add($"focus de {p.Name} : {e.Message}"); }
+                    catch (Exception e) { rep.Errors.Add(L.F("focus de {0} : {1}", p.Name, e.Message)); }
             }
             if (set.ApplyMentoring && rep.Groups.Count > 0)
             {
-                progress("Création des groupes d'encadrement…");
+                progress(L.T("Création des groupes d'encadrement…"));
                 foreach (var g in rep.Groups)
                     try { CreateGroup(ctx, g); rep.Orders += 4; }
-                    catch (Exception e) { rep.Errors.Add($"groupe « {g.Name} » : {e.Message}"); }
+                    catch (Exception e) { rep.Errors.Add(L.F("groupe « {0} » : {1}", g.Name, e.Message)); }
             }
             Training.SaveSet();
             SaveReport(rep);
             Log.Info($"Entraînement appliqué via FM27 Bridge : {rep.Orders} ordre(s), {rep.Errors.Count} erreur(s)" + (rep.Errors.Count > 0 ? " — " + string.Join(" | ", rep.Errors) : ""));
-            Last = rep;
+            s_last = rep;
             return rep;
         }
     }

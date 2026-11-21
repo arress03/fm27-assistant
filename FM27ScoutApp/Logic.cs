@@ -84,12 +84,26 @@ namespace FM27Scout
             return -1;
         }
 
+        /// <summary>Libellé de poste dans la langue de l'interface (clé = code interne GK, DC, ST…).</summary>
+        public static string PositionLabel(string key) => L.Lang switch
+        {
+            "en" => key,
+            "pt" => PositionPt[key],
+            _ => PositionFr[key],
+        };
+        static readonly Dictionary<string, string> PositionPt = new()
+        {
+            ["GK"] = "GR", ["SW"] = "LIB", ["DL"] = "DE", ["DC"] = "DC", ["DR"] = "DD", ["DM"] = "MDC",
+            ["ML"] = "ME", ["MC"] = "MC", ["MR"] = "MD", ["AML"] = "EE", ["AMC"] = "MO", ["AMR"] = "ED",
+            ["ST"] = "PL", ["WBL"] = "DAE", ["WBR"] = "DAD",
+        };
+
         public static string BestPositions(PlayerRow r)
         {
             int top = r.Positions.Max(x => (int)x);
             if (top < 1) return "";
             return string.Join("/", PositionKeys.Where((k, i) => r.Positions[i] >= Math.Max(15, top - 2))
-                .Select(k => PositionFr[k]));
+                .Select(PositionLabel));
         }
 
         // ------------------------------------------------------------------ fichiers de config (JSON)
@@ -236,19 +250,19 @@ namespace FM27Scout
             var res = new List<(string, List<(PlayerRow, string)>)>();
             void Add(string t, IEnumerable<(PlayerRow, string)> l) { var x = l.ToList(); if (x.Count > 0) res.Add((t, x)); }
 
-            Add("Contrat qui se termine dans 6 mois ou moins", squad.Where(r => { int m = Game.ContractMonths(r); return m >= 0 && m <= 6; })
-                .OrderByDescending(r => r.CA).Select(r => (r, $"fin {Game.FmDate(r.ExpYear, r.ExpDoy)}")));
-            Add("Contrat qui se termine dans 6 à 12 mois", squad.Where(r => { int m = Game.ContractMonths(r); return m > 6 && m <= 12; })
-                .OrderByDescending(r => r.CA).Select(r => (r, $"fin {Game.FmDate(r.ExpYear, r.ExpDoy)}")));
-            Add("Très fragiles (fragilité ≥ 15)", squad.Where(r => Stat(r, "InjuryProneness") >= 15)
-                .OrderByDescending(r => Stat(r, "InjuryProneness")).Select(r => (r, $"fragilité {Stat(r, "InjuryProneness")}")));
-            Add("Irréguliers (régularité ≤ 8)", squad.Where(r => Stat(r, "Consistency") is >= 1 and <= 8)
-                .OrderBy(r => Stat(r, "Consistency")).Select(r => (r, $"régularité {Stat(r, "Consistency")}")));
-            Add("Fragiles dans les grands matchs (≤ 8)", squad.Where(r => Stat(r, "ImportantMatches") is >= 1 and <= 8)
-                .OrderBy(r => Stat(r, "ImportantMatches")).Select(r => (r, $"grands matchs {Stat(r, "ImportantMatches")}")));
-            Add("Jeunes peu professionnels (≤ 21 ans, pro ≤ 9)", squad.Where(r => { int a = Game.Age(r); return a >= 0 && a <= 21 && Stat(r, "AttributeProfessionalism") is >= 1 and <= 9; })
-                .Select(r => (r, $"pro {Stat(r, "AttributeProfessionalism")}, {Game.Age(r)} ans")));
-            Add("Marge de progression importante (PA - CA ≥ 25)", squad.Where(r => r.PA - r.CA >= 25)
+            Add(L.T("Contrat qui se termine dans 6 mois ou moins"), squad.Where(r => { int m = Game.ContractMonths(r); return m >= 0 && m <= 6; })
+                .OrderByDescending(r => r.CA).Select(r => (r, L.F("fin {0}", Game.FmDate(r.ExpYear, r.ExpDoy)))));
+            Add(L.T("Contrat qui se termine dans 6 à 12 mois"), squad.Where(r => { int m = Game.ContractMonths(r); return m > 6 && m <= 12; })
+                .OrderByDescending(r => r.CA).Select(r => (r, L.F("fin {0}", Game.FmDate(r.ExpYear, r.ExpDoy)))));
+            Add(L.T("Très fragiles (fragilité ≥ 15)"), squad.Where(r => Stat(r, "InjuryProneness") >= 15)
+                .OrderByDescending(r => Stat(r, "InjuryProneness")).Select(r => (r, L.F("fragilité {0}", Stat(r, "InjuryProneness")))));
+            Add(L.T("Irréguliers (régularité ≤ 8)"), squad.Where(r => Stat(r, "Consistency") is >= 1 and <= 8)
+                .OrderBy(r => Stat(r, "Consistency")).Select(r => (r, L.F("régularité {0}", Stat(r, "Consistency")))));
+            Add(L.T("Fragiles dans les grands matchs (≤ 8)"), squad.Where(r => Stat(r, "ImportantMatches") is >= 1 and <= 8)
+                .OrderBy(r => Stat(r, "ImportantMatches")).Select(r => (r, L.F("grands matchs {0}", Stat(r, "ImportantMatches")))));
+            Add(L.T("Jeunes peu professionnels (≤ 21 ans, pro ≤ 9)"), squad.Where(r => { int a = Game.Age(r); return a >= 0 && a <= 21 && Stat(r, "AttributeProfessionalism") is >= 1 and <= 9; })
+                .Select(r => (r, L.F("pro {0}, {1} ans", Stat(r, "AttributeProfessionalism"), Game.Age(r)))));
+            Add(L.T("Marge de progression importante (PA - CA ≥ 25)"), squad.Where(r => r.PA - r.CA >= 25)
                 .OrderByDescending(r => r.PA - r.CA).Select(r => (r, $"CA {r.CA} → PA {r.PA}")));
             return res;
         }
@@ -333,8 +347,8 @@ namespace FM27Scout
             var keys = Layout.Visible.Select(v => v.prop)
                 .Concat(Layout.HiddenInBlock.Select(h => h.key)).Concat(PersonalityKeys).ToList();
             var sb = new StringBuilder();
-            sb.AppendLine(string.Join(";", new[] { "Nom", "Club", "Age", "Postes", "CA", "PA", "Valeur (£)", "Salaire (£/sem)", "Fin de contrat" }
-                .Concat(keys.Select(k => Names.Of(k)))));
+            sb.AppendLine(string.Join(";", new[] { L.T("Nom"), L.T("Club"), L.T("Age"), L.T("Postes"), "CA", "PA", L.T("Valeur (£)"), L.T("Salaire (£/sem)"), L.T("Fin de contrat") }
+                .Concat(keys.Select(k => L.T(Names.Of(k))))));
             foreach (var r in rows)
             {
                 var cells = new List<string>
@@ -382,6 +396,7 @@ namespace FM27Scout
         public bool GuideWelcomeDone { get; set; }                 // guide de bienvenue déjà vu
         public bool GuideMuted { get; set; }                       // plus de fiches d'aide par page
         public List<string> GuideSeen { get; set; } = new();       // pages dont la fiche d'aide a été vue
+        public string Lang { get; set; } = "";                     // langue de l'interface : fr, en, pt (vide = anglais)
 
         static Settings s_cur;
         public static Settings Cur => s_cur ??= Db.LoadJson("reglages.json", new Settings());

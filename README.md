@@ -99,6 +99,8 @@ La **barre du haut** cherche dans la base de ta partie (lue en direct dans FM, p
 - **Guide interactif** au premier lancement, puis une fiche d'aide la première fois que tu ouvres chaque page
   (« Revoir le guide » en bas du menu).
 - Relecture automatique de la base toutes les 5 minutes, date de jeu estimée (modifiable).
+- **Langue de l'interface** : français, anglais ou portugais (Portugal), au choix dans le menu (*Affichage → Langue*) ;
+  anglais par défaut. Les traductions sont dans `FM27ScoutApp/I18n/Strings.*.cs` (texte français = clé).
 
 ---
 
@@ -113,6 +115,8 @@ La **barre du haut** cherche dans la base de ta partie (lue en direct dans FM, p
 ## Limites
 
 - Windows uniquement, partie solo.
+- FM27 en français, anglais ou portugais : les libellés que l'app lit dans FM (focus individuels, amicaux, entraîneur adjoint,
+  noms de club) sont reconnus dans ces langues ; dans une autre langue, les focus individuels peuvent ne pas être réglés.
 - Valeurs et salaires en £ (unité interne du jeu).
 - Après une grosse mise à jour de FM27, certaines fonctions du module peuvent devoir être mises à jour.
 - Les rôles et consignes individuelles sont ceux que FM associe au style choisi ; tu peux les ajuster dans le jeu.

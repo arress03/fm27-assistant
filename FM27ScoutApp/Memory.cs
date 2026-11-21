@@ -56,16 +56,16 @@ namespace FM27Scout
         {
             why = "";
             var p = Process.GetProcessesByName("fm").FirstOrDefault();
-            if (p == null) { why = "FM27 n'est pas lancé."; return null; }
+            if (p == null) { why = L.T("FM27 n'est pas lancé."); return null; }
             nint h = OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, false, p.Id);
-            if (h == 0) { why = "Accès refusé à FM27 (lance l'app avec le même compte que le jeu)."; return null; }
+            if (h == 0) { why = L.T("Accès refusé à FM27 (lance l'app avec le même compte que le jeu)."); return null; }
             try
             {
                 var g = new GameProcess(p, h);
-                if (g.PluginBase == 0) { g.Dispose(); why = "FM27 démarre encore…"; return null; }
+                if (g.PluginBase == 0) { g.Dispose(); why = L.T("FM27 démarre encore…"); return null; }
                 return g;
             }
-            catch (Exception e) { CloseHandle(h); why = "FM27 démarre encore… (" + e.Message + ")"; return null; }
+            catch (Exception e) { CloseHandle(h); why = L.F("FM27 démarre encore… ({0})", e.Message); return null; }
         }
 
         public bool Alive => GetExitCodeProcess(_h, out uint c) && c == 259;   // STILL_ACTIVE

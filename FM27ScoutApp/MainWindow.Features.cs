@@ -24,15 +24,15 @@ namespace FM27Scout
             var ch = rows.ToDictionary(x => x.r, x => x);
             var extras = new List<Extra>
             {
-                new("Changements", "Changements depuis l'ajout", typeof(string), r => ch[r].changes, 300, true),
-                new("Prog", "Prog. CA", typeof(int), r => Features.Progress(r), 70),
+                new("Changements", L.T("Changements depuis l'ajout"), typeof(string), r => ch[r].changes, 300, true),
+                new("Prog", L.T("Prog. CA"), typeof(int), r => Features.Progress(r), 70),
             };
             Bind(ShortGrid, MakeTable(_shortRes, extras), extras);
             int alerts = rows.Count(x => x.important);
             ShortInfo.Text = Features.Shortlist.Count == 0
-                ? "Vide : ajoute des joueurs depuis leur fiche."
-                : $"{rows.Count} joueur(s){(alerts > 0 ? $" · {alerts} à surveiller (club, valeur en baisse, fin de contrat)" : "")}";
-            NavShortLabel.Text = alerts > 0 ? $"Shortlist · {alerts} à voir" : Features.Shortlist.Count > 0 ? $"Shortlist · {Features.Shortlist.Count}" : "Shortlist";
+                ? L.T("Vide : ajoute des joueurs depuis leur fiche.")
+                : L.F("{0} joueur(s)", rows.Count) + (alerts > 0 ? " · " + L.F("{0} à surveiller (club, valeur en baisse, fin de contrat)", alerts) : "");
+            NavShortLabel.Text = alerts > 0 ? L.F("Shortlist · {0} à voir", alerts) : Features.Shortlist.Count > 0 ? $"{L.T("Shortlist")} · {Features.Shortlist.Count}" : L.T("Shortlist");
         }
 
         void ShortSeen_Click(object s, RoutedEventArgs e) { Features.MarkShortSeen(); ShowShort(); }
@@ -49,7 +49,7 @@ namespace FM27Scout
             DealChips.Children.Clear();
             foreach (var (key, label) in Features.DealKinds)
             {
-                var b = new ToggleButton { Content = label, IsChecked = _dealKind == key };
+                var b = new ToggleButton { Content = L.T(label), IsChecked = _dealKind == key };
                 var k = key;
                 b.Click += (_, _) => { _dealKind = k; ShowDeals(); };
                 DealChips.Children.Add(b);
@@ -59,17 +59,17 @@ namespace FM27Scout
             DealChips.Children.Add(new TextBlock { Text = _dealCaMin.ToString(), Foreground = BText, FontWeight = FontWeights.SemiBold, Width = 40, TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center });
             DealChips.Children.Add(Btn("+", () => { _dealCaMin = Math.Min(200, _dealCaMin + 10); ShowDeals(); }));
 
-            if (Game.Rows.Count == 0) { DealGrid.ItemsSource = null; DealInfo.Text = "Base pas encore lue"; return; }
+            if (Game.Rows.Count == 0) { DealGrid.ItemsSource = null; DealInfo.Text = L.T("Base pas encore lue"); return; }
             _dealRes = Features.Deals(_dealKind, _dealCaMin);
             var extras = new List<Extra>
             {
-                new("QP", "Qualité/prix", typeof(int), r => r.Value > 0 ? (object)(int)Math.Round(Features.QualityPrice(r)) : null, 90, true),
-                new("Salaire", "Salaire/sem.", typeof(long), r => r.Wage >= 0 ? r.Wage : null, 90),
+                new("QP", L.T("Qualité/prix"), typeof(int), r => r.Value > 0 ? (object)(int)Math.Round(Features.QualityPrice(r)) : null, 90, true),
+                new("Salaire", L.T("Salaire/sem."), typeof(long), r => r.Wage >= 0 ? r.Wage : null, 90),
             };
             Bind(DealGrid, MakeTable(_dealRes, extras), extras);
-            DealInfo.Text = $"{_dealRes.Count}{(_dealRes.Count >= 500 ? "+" : "")} joueur(s)" +
-                (!Game.HasDate && _dealKind is "6" or "12" ? " · date de jeu inconnue : saisis-la en haut" : "") +
-                (_dealKind == "prix" ? " · qualité/prix = CA² par million de £ (plus c'est haut, mieux c'est)" : "");
+            DealInfo.Text = L.F("{0} joueur(s)", $"{_dealRes.Count}{(_dealRes.Count >= 500 ? "+" : "")}") +
+                (!Game.HasDate && _dealKind is "6" or "12" ? " · " + L.T("date de jeu inconnue : saisis-la en haut") : "") +
+                (_dealKind == "prix" ? " · " + L.T("qualité/prix = CA² par million de £ (plus c'est haut, mieux c'est)") : "");
         }
 
         void ExportDeals_Click(object s, RoutedEventArgs e) => Export(_dealRes, "bonnes-affaires");
@@ -82,7 +82,7 @@ namespace FM27Scout
         {
             DressChips.Children.Clear();
             var squad = Game.Rows.Where(r => r.Club == Settings.Cur.MyClub && Settings.Cur.MyClub != "" && Game.Shown(r)).ToList();
-            if (squad.Count == 0) { DressGrid.ItemsSource = null; DressInfo.Text = "Choisis ton club dans « Mon club »."; return; }
+            if (squad.Count == 0) { DressGrid.ItemsSource = null; DressInfo.Text = L.T("Choisis ton club dans « Mon club »."); return; }
             var cats = Features.Dressing.Select(c => (c.titre, c.positif, list: squad.Select(r => (r, why: c.why(r))).Where(x => x.why != null).OrderByDescending(x => x.r.CA).ToList())).ToList();
 
             void Chip(string label, string cat, bool positive)
@@ -92,8 +92,8 @@ namespace FM27Scout
                 b.Click += (_, _) => { _dressCat = cat; ShowDressing(); };
                 DressChips.Children.Add(b);
             }
-            Chip("Tout le vestiaire", null, true);
-            foreach (var (titre, positif, list) in cats) if (list.Count > 0) Chip($"{titre} · {list.Count}", titre, positif);
+            Chip(L.T("Tout le vestiaire"), null, true);
+            foreach (var (titre, positif, list) in cats) if (list.Count > 0) Chip($"{L.T(titre)} · {list.Count}", titre, positif);
 
             var shown = new List<PlayerRow>();
             var why = new Dictionary<PlayerRow, List<string>>();
@@ -101,12 +101,12 @@ namespace FM27Scout
                 foreach (var (r, w) in list)
                 {
                     if (!why.TryGetValue(r, out var l)) { why[r] = l = new(); shown.Add(r); }
-                    l.Add(_dressCat == null ? $"{titre} ({w})" : w);
+                    l.Add(_dressCat == null ? $"{L.T(titre)} ({w})" : w);
                 }
             if (_dressCat == null) foreach (var r in squad.Where(r => !why.ContainsKey(r))) { why[r] = new() { "" }; shown.Add(r); }
-            var extras = new List<Extra> { new("Pourquoi", "Pourquoi", typeof(string), r => string.Join(" · ", why[r]), 360, true) };
+            var extras = new List<Extra> { new("Pourquoi", L.T("Pourquoi"), typeof(string), r => string.Join(" · ", why[r]), 360, true) };
             Bind(DressGrid, MakeTable(shown.OrderByDescending(r => r.CA), extras), extras);
-            DressInfo.Text = $"{Settings.Cur.MyClub} · {squad.Count} joueurs · points forts en vert, risques en orange (stats cachées)";
+            DressInfo.Text = $"{Settings.Cur.MyClub} · " + L.F("{0} joueurs · points forts en vert, risques en orange (stats cachées)", squad.Count);
         }
 
         // ============================================================ fiche joueur : shortlist, progression, profils similaires
@@ -116,7 +116,7 @@ namespace FM27Scout
         Button ShortButton(PlayerRow r)
         {
             var b = new Button();
-            void Refresh() => b.Content = Features.InShortlist(r) ? "Dans la shortlist" : "Ajouter à la shortlist";
+            void Refresh() => b.Content = Features.InShortlist(r) ? L.T("Dans la shortlist") : L.T("Ajouter à la shortlist");
             Refresh();
             b.Click += (_, _) => { Features.ToggleShort(r); Refresh(); ShowShort(); };
             return b;
@@ -126,14 +126,14 @@ namespace FM27Scout
         {
             var pts = Features.Points(r);
             var sp = new StackPanel();
-            sp.Children.Add(T("Progression", 15, BText, true));
+            sp.Children.Add(T(L.T("Progression"), 15, BText, true));
             if (pts.Count < 2)
             {
-                sp.Children.Add(T("Un relevé est enregistré à chaque date de jeu : la courbe apparaîtra quand tu auras avancé dans ta partie.", 12, BDim));
+                sp.Children.Add(T(L.T("Un relevé est enregistré à chaque date de jeu : la courbe apparaîtra quand tu auras avancé dans ta partie."), 12, BDim));
                 return Card(sp);
             }
             int first = pts[0].ca, last = pts[^1].ca;
-            sp.Children.Add(T($"CA {first} → {last} ({(last >= first ? "+" : "")}{last - first}) depuis le {pts[0].date:dd/MM/yyyy}  ·  PA {pts[^1].pa}", 12, last > first ? BGood : last < first ? BBad : BDim));
+            sp.Children.Add(T(L.F("CA {0} → {1} ({2}) depuis le {3:dd/MM/yyyy}  ·  PA {4}", first, last, $"{(last >= first ? "+" : "")}{last - first}", pts[0].date, pts[^1].pa), 12, last > first ? BGood : last < first ? BBad : BDim));
             const double W = 640, H = 140;
             var c = new Canvas { Width = W, Height = H + 20, Margin = new Thickness(0, 8, 0, 0), HorizontalAlignment = HorizontalAlignment.Left };
             int lo = Math.Max(0, pts.Min(p => p.ca) - 5), hi = Math.Min(200, Math.Max(pts.Max(p => p.ca), pts[^1].pa) + 5);
@@ -148,7 +148,7 @@ namespace FM27Scout
             c.Children.Add(poly);
             foreach (var p in pts)
             {
-                var dot = new Ellipse { Width = 7, Height = 7, Fill = BGood, ToolTip = $"{p.date:dd/MM/yyyy} : CA {p.ca}" };
+                var dot = new Ellipse { Width = 7, Height = 7, Fill = BGood, ToolTip = L.F("{0:dd/MM/yyyy} : CA {1}", p.date, p.ca) };
                 Canvas.SetLeft(dot, X(p.date) - 3.5); Canvas.SetTop(dot, Y(p.ca) - 3.5); c.Children.Add(dot);
             }
             foreach (var (d, al) in new[] { (pts[0].date, 0.0), (pts[^1].date, 1.0) })
@@ -171,22 +171,22 @@ namespace FM27Scout
                 b.Click += (_, _) => { a(); ShowPlayer(r); };
                 return b;
             }
-            opts.Children.Add(Opt("Plus jeunes", _simYounger, () => _simYounger = !_simYounger));
-            opts.Children.Add(Opt("Moins chers", _simCheaper, () => _simCheaper = !_simCheaper));
+            opts.Children.Add(Opt(L.T("Plus jeunes"), _simYounger, () => _simYounger = !_simYounger));
+            opts.Children.Add(Opt(L.T("Moins chers"), _simCheaper, () => _simCheaper = !_simCheaper));
             head.Children.Add(opts);
-            head.Children.Add(T("Profils similaires (remplaçants possibles)", 15, BText, true));
+            head.Children.Add(T(L.T("Profils similaires (remplaçants possibles)"), 15, BText, true));
             sp.Children.Add(head);
-            sp.Children.Add(T("Attributs les plus proches, sur au moins un de ses postes. Clic = fiche.", 11, BDim));
+            sp.Children.Add(T(L.T("Attributs les plus proches, sur au moins un de ses postes. Clic = fiche."), 11, BDim));
 
             var list = Game.Rows.Count == 0 ? new() : Features.Similar(r, _simYounger, _simCheaper, 15);
-            if (list.Count == 0) sp.Children.Add(T("Aucun joueur trouvé avec ces filtres.", 13, BDim));
+            if (list.Count == 0) sp.Children.Add(T(L.T("Aucun joueur trouvé avec ces filtres."), 13, BDim));
             var grid = new Grid { Margin = new Thickness(0, 8, 0, 0) };
             foreach (var w in new[] { 34.0, 3.0, 2.2, 0.9, 1.4, 0.8, 0.8, 1.2 })
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = w > 10 ? new GridLength(w) : new GridLength(w, GridUnitType.Star) });
             int row = 0;
             void Cell(UIElement e, int col) { Grid.SetRow(e, row); Grid.SetColumn(e, col); grid.Children.Add(e); }
             grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(24) });
-            string[] heads = { "", "Joueur", "Club", "Âge", "Postes", "CA", "PA", "Valeur" };
+            string[] heads = { "", L.T("Joueur"), L.T("Club"), L.T("Âge"), L.T("Postes"), "CA", "PA", L.T("Valeur") };
             for (int i = 0; i < heads.Length; i++) Cell(T(heads[i], 11, BDim, true), i);
             foreach (var (o, sim) in list)
             {
@@ -199,10 +199,10 @@ namespace FM27Scout
                 Cell(img, 0);
                 var nm = new StackPanel { IsHitTestVisible = false, VerticalAlignment = VerticalAlignment.Center };
                 nm.Children.Add(T(o.Name, 13, BText, true));
-                nm.Children.Add(T($"ressemblance {sim} %", 10, sim >= 85 ? BGood : sim >= 70 ? BOk : BMid));
+                nm.Children.Add(T(L.F("ressemblance {0} %", sim), 10, sim >= 85 ? BGood : sim >= 70 ? BOk : BMid));
                 Cell(nm, 1);
                 int age = Game.Age(o);
-                var cells = new[] { o.Club == "" ? "Libre" : o.Club, age < 0 ? "—" : age.ToString(), Db.BestPositions(o), o.CA.ToString(), o.PA.ToString(), Money(o.Value) };
+                var cells = new[] { o.Club == "" ? L.T("Libre") : o.Club, age < 0 ? "—" : age.ToString(), Db.BestPositions(o), o.CA.ToString(), o.PA.ToString(), Money(o.Value) };
                 for (int i = 0; i < cells.Length; i++)
                 {
                     var t = T(cells[i], 13, i == 4 ? BAccent : BText, i is 3 or 4);
@@ -234,7 +234,7 @@ namespace FM27Scout
                 var o = P(i, 0); var e = P(i, 20);
                 c.Children.Add(new Line { X1 = o.X, Y1 = o.Y, X2 = e.X, Y2 = e.Y, Stroke = Br("#26FFFFFF") });
                 var lp = P(i, 23.5);
-                var t = T(axes[i].label, 12, BDim, true);
+                var t = T(L.T(axes[i].label), 12, BDim, true);
                 t.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                 Canvas.SetLeft(t, lp.X - t.DesiredSize.Width / 2); Canvas.SetTop(t, lp.Y - 8);
                 c.Children.Add(t);
@@ -254,7 +254,7 @@ namespace FM27Scout
             if (b != null) legend.Children.Add(T(b.Name, 13, BAccent, true));
             sp.Children.Add(legend);
             sp.Children.Add(c);
-            sp.Children.Add(T("Moyenne des attributs de chaque famille (sur 20). « Fiabilité » = régularité, grands matchs, professionnalisme, pression.", 11, BDim));
+            sp.Children.Add(T(L.T("Moyenne des attributs de chaque famille (sur 20). « Fiabilité » = régularité, grands matchs, professionnalisme, pression."), 11, BDim));
             return Card(sp);
         }
     }
