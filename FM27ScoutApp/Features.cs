@@ -67,16 +67,16 @@ namespace FM27Scout
                 if (!ulong.TryParse(k, out var key) || ByKey(key) is not PlayerRow r) continue;
                 var ch = new List<string>();
                 bool imp = false;
-                if (e.Club != r.Club) { ch.Add($"club : {(e.Club == "" ? "libre" : e.Club)} → {(r.Club == "" ? "libre" : r.Club)}"); imp = true; }
+                if (e.Club != r.Club) { ch.Add(L.F("club : {0} → {1}", e.Club == "" ? L.T("libre") : e.Club, r.Club == "" ? L.T("libre") : r.Club)); imp = true; }
                 if (e.Valeur > 0 && r.Value >= 0)
                 {
                     double d = (r.Value - e.Valeur) * 100.0 / e.Valeur;
-                    if (d <= -10) { ch.Add($"valeur {d:F0} %"); imp = true; }
-                    else if (d >= 10) ch.Add($"valeur +{d:F0} %");
+                    if (d <= -10) { ch.Add(L.F("valeur {0:F0} %", d)); imp = true; }
+                    else if (d >= 10) ch.Add(L.F("valeur +{0:F0} %", d));
                 }
                 int m = Game.ContractMonths(r);
-                if (m >= 0 && m <= 12) { ch.Add(m <= 6 ? $"contrat fini dans {m} mois" : $"contrat ≤ 12 mois"); imp = true; }
-                if (r.Club == "") { ch.Add("libre"); imp = true; }
+                if (m >= 0 && m <= 12) { ch.Add(m <= 6 ? L.F("contrat fini dans {0} mois", m) : L.T("contrat ≤ 12 mois")); imp = true; }
+                if (r.Club == "") { ch.Add(L.T("libre")); imp = true; }
                 if (r.CA != e.CA) ch.Add($"CA {(r.CA > e.CA ? "+" : "")}{r.CA - e.CA}");
                 res.Add((r, string.Join(" · ", ch), imp));
             }
@@ -287,27 +287,27 @@ namespace FM27Scout
 
         public static readonly (string titre, bool positif, Func<PlayerRow, string> why)[] Dressing =
         {
-            ("Fragiles", false, r => Db.Stat(r, "InjuryProneness") >= 14 ? $"fragilité {Db.Stat(r, "InjuryProneness")}" : null),
-            ("Irréguliers", false, r => Db.Stat(r, "Consistency") is >= 1 and <= 9 ? $"régularité {Db.Stat(r, "Consistency")}" : null),
-            ("Faibles en grands matchs", false, r => Db.Stat(r, "ImportantMatches") is >= 1 and <= 9 ? $"grands matchs {Db.Stat(r, "ImportantMatches")}" : null),
-            ("Peu professionnels", false, r => Db.Stat(r, "AttributeProfessionalism") is >= 1 and <= 9 ? $"professionnalisme {Db.Stat(r, "AttributeProfessionalism")}" : null),
+            ("Fragiles", false, r => Db.Stat(r, "InjuryProneness") >= 14 ? L.F("fragilité {0}", Db.Stat(r, "InjuryProneness")) : null),
+            ("Irréguliers", false, r => Db.Stat(r, "Consistency") is >= 1 and <= 9 ? L.F("régularité {0}", Db.Stat(r, "Consistency")) : null),
+            ("Faibles en grands matchs", false, r => Db.Stat(r, "ImportantMatches") is >= 1 and <= 9 ? L.F("grands matchs {0}", Db.Stat(r, "ImportantMatches")) : null),
+            ("Peu professionnels", false, r => Db.Stat(r, "AttributeProfessionalism") is >= 1 and <= 9 ? L.F("professionnalisme {0}", Db.Stat(r, "AttributeProfessionalism")) : null),
             ("Tempérament à risque", false, r =>
             {
                 int t = Db.Stat(r, "AttributeTemperament"), v = Db.Stat(r, "Dirtiness"), c = Db.Stat(r, "AttributeControversy");
                 var w = new List<string>();
-                if (t is >= 1 and <= 7) w.Add($"tempérament {t}");
-                if (v >= 15) w.Add($"vice {v}");
-                if (c >= 15) w.Add($"controverse {c}");
+                if (t is >= 1 and <= 7) w.Add(L.F("tempérament {0}", t));
+                if (v >= 15) w.Add(L.F("vice {0}", v));
+                if (c >= 15) w.Add(L.F("controverse {0}", c));
                 return w.Count > 0 ? string.Join(", ", w) : null;
             }),
-            ("Craquent sous la pression", false, r => Db.Stat(r, "AttributePressure") is >= 1 and <= 8 ? $"pression {Db.Stat(r, "AttributePressure")}" : null),
+            ("Craquent sous la pression", false, r => Db.Stat(r, "AttributePressure") is >= 1 and <= 8 ? L.F("pression {0}", Db.Stat(r, "AttributePressure")) : null),
             ("Risque de départ (ambitieux, peu loyaux)", false, r =>
-                Db.Stat(r, "AttributeAmbition") >= 15 && Db.Stat(r, "AttributeLoyalty") is >= 1 and <= 9 ? $"ambition {Db.Stat(r, "AttributeAmbition")}, loyauté {Db.Stat(r, "AttributeLoyalty")}" : null),
+                Db.Stat(r, "AttributeAmbition") >= 15 && Db.Stat(r, "AttributeLoyalty") is >= 1 and <= 9 ? L.F("ambition {0}, loyauté {1}", Db.Stat(r, "AttributeAmbition"), Db.Stat(r, "AttributeLoyalty")) : null),
             ("Fiables pour une finale", true, r =>
-                Db.Stat(r, "ImportantMatches") >= 15 && Db.Stat(r, "Consistency") >= 14 ? $"grands matchs {Db.Stat(r, "ImportantMatches")}, régularité {Db.Stat(r, "Consistency")}" : null),
+                Db.Stat(r, "ImportantMatches") >= 15 && Db.Stat(r, "Consistency") >= 14 ? L.F("grands matchs {0}, régularité {1}", Db.Stat(r, "ImportantMatches"), Db.Stat(r, "Consistency")) : null),
             ("Modèles pour les jeunes", true, r =>
-                Db.Stat(r, "AttributeProfessionalism") >= 16 && Db.Stat(r, "AttributeDetermination") >= 15 ? $"pro {Db.Stat(r, "AttributeProfessionalism")}, détermination {Db.Stat(r, "AttributeDetermination")}" : null),
-            ("Polyvalents", true, r => Db.Stat(r, "Versatility") >= 15 ? $"polyvalence {Db.Stat(r, "Versatility")}" : null),
+                Db.Stat(r, "AttributeProfessionalism") >= 16 && Db.Stat(r, "AttributeDetermination") >= 15 ? L.F("pro {0}, détermination {1}", Db.Stat(r, "AttributeProfessionalism"), Db.Stat(r, "AttributeDetermination")) : null),
+            ("Polyvalents", true, r => Db.Stat(r, "Versatility") >= 15 ? L.F("polyvalence {0}", Db.Stat(r, "Versatility")) : null),
         };
 
         // ================================================================== axes du radar (comparateur)

@@ -106,6 +106,46 @@ namespace FM27Scout
             Settings.Save();
         }
 
+        /// <summary>
+        /// Identifiants FM des joueurs sans pack de photos : on part des identifiants que FM27 Bridge donne pour ton effectif
+        /// et on cherche où ils sont rangés dans les objets joueur. Ne fait rien si ces identifiants sont déjà reconnus.
+        /// </summary>
+        public static void MatchIds(ICollection<uint> ids)
+        {
+            lock (s_matchLock) MatchIdsLocked(ids);
+        }
+
+        static readonly object s_matchLock = new();
+
+        static void MatchIdsLocked(ICollection<uint> ids)
+        {
+            var rows = Game.Rows; var g = Game.Proc;
+            if (ids.Count < 5 || g == null || rows.Count == 0 || rows.Any(r => r.Uid != 0 && ids.Contains(r.Uid))) return;
+            var want = ids as HashSet<uint> ?? new HashSet<uint>(ids);
+            const int SPAN = 0x400;
+            var hits = new int[SPAN / 4];
+            Parallel.ForEach(rows, () => (buf: new byte[SPAN], h: new int[SPAN / 4]), (r, _, s) =>
+            {
+                if (g.Read(r.Addr, s.buf, SPAN))
+                    for (int k = 0; k < SPAN / 4; k++) if (want.Contains(BitConverter.ToUInt32(s.buf, k * 4))) s.h[k]++;
+                return s;
+            }, s => { lock (hits) for (int k = 0; k < hits.Length; k++) hits[k] += s.h[k]; });
+            int best = Array.IndexOf(hits, hits.Max());
+            if (hits[best] < Math.Max(5, want.Count / 2)) { Log.Warn($"Identifiants joueur introuvables ({hits[best]} sur {want.Count})"); return; }
+            int off = best * 4;
+            Settings.Cur.PersonUidOff = off; Settings.Save();
+            Parallel.ForEach(rows, () => new byte[4], (r, _, b) => { if (g.Read(r.Addr + (ulong)off, b, 4)) r.Uid = BitConverter.ToUInt32(b, 0); return b; }, _ => { });
+            Log.Info($"Identifiants joueur retrouvés via FM27 Bridge : +0x{off:X} ({hits[best]} sur {want.Count})");
+        }
+
+        /// <summary>Sans pack de photos : réutilise l'emplacement des identifiants trouvé lors d'une session précédente.</summary>
+        public static void UseSavedIds(GameProcess g, List<PlayerRow> rows)
+        {
+            int off = Settings.Cur.PersonUidOff;
+            if (off < 0 || rows.Any(r => r.Uid != 0)) return;
+            Parallel.ForEach(rows, () => new byte[4], (r, _, b) => { if (g.Read(r.Addr + (ulong)off, b, 4)) r.Uid = BitConverter.ToUInt32(b, 0); return b; }, _ => { });
+        }
+
         static readonly ConcurrentDictionary<string, ImageSource> Cache = new();
 
         static ImageSource Image(string path, int px)

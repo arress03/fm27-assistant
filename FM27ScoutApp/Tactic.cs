@@ -225,7 +225,7 @@ namespace FM27Scout
             foreach (var k in st.Demand)
             {
                 double v = l.Average(r => Math.Max(1, Db.Stat(r, "Attribute" + k)));
-                string name = Names.Of("Attribute" + k);
+                string name = L.T(Names.Of("Attribute" + k));
                 if (v >= 13.5) notes.Add($"+ {name} ({v:F1}/20)");
                 else if (v < 11) notes.Add($"− {name} ({v:F1}/20)");
             }

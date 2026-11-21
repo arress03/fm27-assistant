@@ -111,7 +111,7 @@ namespace FM27Scout
                         (kSel, "SI.Core.DynamicNumber", $"\"{person & 0xFFFFFF}\""),
                         (kSlot, "SI.Core.DynamicNumber", $"\"{pl.Slot.Index}\""))));
                 try { Bridge.Send(evPlace, "TeamTacticReference", p, json); n++; Thread.Sleep(250); }
-                catch (Exception e) { errors.Add($"{pl.Player.Name} : {e.Message}"); }
+                catch (Exception e) { errors.Add(L.F("{0} : {1}", pl.Player.Name, e.Message)); }
             }
             return n;
         }
@@ -141,6 +141,7 @@ namespace FM27Scout
                 map[(uint)uid] = persons[i];
                 if (Bridge.Int(vals[i * 2 + 1], -1) < 0) lock (Unavailable) Unavailable.Add((uint)uid);   // condition illisible = blessé
             }
+            Gfx.MatchIds(map.Keys);   // sans pack de photos : relie la base aux identifiants FM de ton effectif
             try { ReadFeet(map); } catch { }
             return map;
         }
@@ -199,7 +200,7 @@ namespace FM27Scout
             string p = Pairs(c);
             var menu = Bridge.Read1("TeamTacticReference", p, "1949648203")?.GetRawText() ?? "";
             int tactics = System.Text.RegularExpressions.Regex.Matches(menu, "\\[1937011303,").Count;
-            if (tactics >= 3) throw new Exception("FM est limité à 3 tactiques et elles sont toutes prises : supprime-en une dans FM, ou utilise « Appliquer à la tactique active »");
+            if (tactics >= 3) throw new Exception(L.T("FM est limité à 3 tactiques et elles sont toutes prises : supprime-en une dans FM, ou utilise « Appliquer à la tactique active »"));
             Bridge.Send(evNew, "TeamTacticReference", p, "[\"null\",\"\"]");
             Thread.Sleep(600);
             Bridge.WriteChannel("TeamTacticReference", p, pStyle, Bridge.Num(cfg.Style.Index));
@@ -212,7 +213,7 @@ namespace FM27Scout
             Thread.Sleep(1500);
             var after = Bridge.Read1("TeamTacticReference", p, "1949648203")?.GetRawText() ?? "";
             if (System.Text.RegularExpressions.Regex.Matches(after, "\\[1937011303,").Count <= tactics)
-                throw new Exception("FM n'a pas créé la nouvelle tactique (rien n'a été modifié)");
+                throw new Exception(L.T("FM n'a pas créé la nouvelle tactique (rien n'a été modifié)"));
             ApplyConfig(c, cfg);
             Thread.Sleep(1500);
             return Bridge.Str(Bridge.Read1("TeamTacticReference", p, pName.ToString())) ?? "";

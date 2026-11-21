@@ -77,12 +77,12 @@ namespace FM27Scout
             score["Gardien"] = -1;   // les gardiens ont leur propre préparateur : traité à part
             var why = new Dictionary<string, string>();
             foreach (var n in needs.Where(n => n.gap > 0))
-                if (AxisAreas.TryGetValue(n.axis, out var areas)) foreach (var a in areas) why.TryAdd(a, $"{n.axis.ToLower()} en retard de {n.gap:F1} sur le niveau");
+                if (AxisAreas.TryGetValue(n.axis, out var areas)) foreach (var a in areas) why.TryAdd(a, L.F("{0} en retard de {1:F1} sur le niveau", L.T(n.axis).ToLower(), n.gap));
             if (Set.Expert)
                 foreach (var (a, m) in Set.AreaMode)
                 {
                     if (!score.ContainsKey(a)) continue;
-                    if (m == "force") { score[a] += 100; why[a] = "imposé (mode expert)"; }
+                    if (m == "force") { score[a] += 100; why[a] = L.T("imposé (mode expert)"); }
                     if (m == "exclu") score[a] = -100;
                 }
 
@@ -109,7 +109,7 @@ namespace FM27Scout
                     if (!pick.Contains(a) && !(Set.Expert && Set.AreaMode.GetValueOrDefault(a) == "exclu")) pick.Add(a);
                 }
                 foreach (var a in pick) lastUsed[a] = w;
-                var focus = pick.Select(a => (a, why.GetValueOrDefault(a, "entretien (rotation pour garder l'équipe en place)"))).ToList();
+                var focus = pick.Select(a => (a, why.GetValueOrDefault(a, L.T("entretien (rotation pour garder l'équipe en place)")))).ToList();
 
                 // intensité par état de forme (valeurs proposées par FM27)
                 bool careful = ms.Count >= 2 || tired || (Set.Expert && Set.Style == "prudent");
@@ -117,9 +117,9 @@ namespace FM27Scout
                 string[] ti = careful ? new[] { NoPitch, NoPitch, Half, Normal, Normal }
                             : push ? new[] { Half, Half, Normal, Normal, Normal }
                             : new[] { NoPitch, Half, Normal, Normal, Normal };
-                string note = ms.Count >= 2 ? "semaine chargée : récupération avant tout"
-                            : ms.Count == 0 ? "semaine sans match : bon moment pour travailler le fond"
-                            : tired ? "effectif fatigué : on lève le pied" : "semaine normale";
+                string note = ms.Count >= 2 ? L.T("semaine chargée : récupération avant tout")
+                            : ms.Count == 0 ? L.T("semaine sans match : bon moment pour travailler le fond")
+                            : tired ? L.T("effectif fatigué : on lève le pied") : L.T("semaine normale");
                 weeks.Add(new Week(ws, ms, focus, ti, note));
             }
             return weeks;
@@ -157,7 +157,7 @@ namespace FM27Scout
             return (int)Math.Clamp(Math.Round(s), 0, 100);
         }
 
-        public static string RiskLabel(int risk) => risk >= 55 ? "élevé" : risk >= 35 ? "moyen" : "faible";
+        public static string RiskLabel(int risk) => risk >= 55 ? L.T("élevé") : risk >= 35 ? L.T("moyen") : L.T("faible");
 
         /// <summary>Intensité individuelle conseillée (ou forcée en mode expert).</summary>
         public static string IndividualIntensity(PlayerRow r, int risk)
@@ -197,23 +197,23 @@ namespace FM27Scout
             var gaps = role.Poids.Select(kv => (key: kv.Key == "AttributeOffTheBall" ? "AttributeMovement" : kv.Key, w: kv.Value))
                 .Select(x => (x.key, v: Db.Stat(r, x.key), x.w)).Where(x => x.v > 0)
                 .Select(x => (x.key, x.v, score: (20 - x.v) * x.w)).OrderByDescending(x => x.score).Take(3).ToList();
-            string focus = gaps.Count > 0 ? Names.Of(gaps[0].key) : "—";
-            string targets = string.Join(", ", gaps.Select(g => $"{Names.Of(g.key)} {g.v}"));
+            string focus = gaps.Count > 0 ? L.T(Names.Of(gaps[0].key)) : "—";
+            string targets = string.Join(", ", gaps.Select(g => $"{L.T(Names.Of(g.key))} {g.v}"));
 
             int risk = FatigueRisk(r), age = Game.Age(r), margin = r.PA - r.CA;
             string load = IndividualIntensity(r, risk);
 
             var notes = new List<string>();
-            if (margin <= 3) notes.Add("proche de son potentiel : le focus rapportera peu, privilégier le maintien");
-            else if (age is >= 0 and <= 21 && margin >= 15) notes.Add("gros potentiel : du temps de jeu (prêt ou rotation) l'aidera autant que l'entraînement");
+            if (margin <= 3) notes.Add(L.T("proche de son potentiel : le focus rapportera peu, privilégier le maintien"));
+            else if (age is >= 0 and <= 21 && margin >= 15) notes.Add(L.T("gros potentiel : du temps de jeu (prêt ou rotation) l'aidera autant que l'entraînement"));
             int pro = Db.Stat(r, "AttributeProfessionalism"), det = Db.Stat(r, "AttributeDetermination");
-            if (age is >= 0 and <= 21 && (pro is >= 1 and <= 11 || det is >= 1 and <= 11)) notes.Add("à mettre dans un groupe d'encadrement");
-            if (Db.Stat(r, "InjuryProneness") >= 15) notes.Add("très fragile : éviter les semaines avec 2 matchs");
+            if (age is >= 0 and <= 21 && (pro is >= 1 and <= 11 || det is >= 1 and <= 11)) notes.Add(L.T("à mettre dans un groupe d'encadrement"));
+            if (Db.Stat(r, "InjuryProneness") >= 15) notes.Add(L.T("très fragile : éviter les semaines avec 2 matchs"));
             var pts = Features.Points(r);
-            if (pts.Count >= 3 && margin >= 10 && pts[^1].ca <= pts[0].ca && (pts[^1].date - pts[0].date).TotalDays >= 45)
-                notes.Add($"stagne depuis le {pts[0].date:dd/MM} : changer de focus ou lui donner du temps de jeu");
+            bool stagnant = pts.Count >= 3 && margin >= 10 && pts[^1].ca <= pts[0].ca && (pts[^1].date - pts[0].date).TotalDays >= 45;
+            if (stagnant) notes.Add(L.F("stagne depuis le {0:dd/MM} : changer de focus ou lui donner du temps de jeu", pts[0].date));
 
-            int prio = Math.Max(0, margin) * (age is >= 0 and <= 23 ? 2 : 1) + (notes.Any(n => n.StartsWith("stagne")) ? 20 : 0);
+            int prio = Math.Max(0, margin) * (age is >= 0 and <= 23 ? 2 : 1) + (stagnant ? 20 : 0);
             return new(role.Nom, focus, targets, load, risk, string.Join(" · ", notes), prio)
             {
                 GapKeys = role.Poids.Select(kv => (key: kv.Key == "AttributeOffTheBall" ? "AttributeMovement" : kv.Key, w: kv.Value))

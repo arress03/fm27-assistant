@@ -114,7 +114,7 @@ namespace FM27Scout
 
         static string Ok(string r, string what)
         {
-            if (r == null) throw new Exception("FM27 Bridge ne répond pas (FM est-il lancé avec une partie chargée ?)");
+            if (r == null) throw new Exception(L.T("FM27 Bridge ne répond pas (FM est-il lancé avec une partie chargée ?)"));
             if (!r.StartsWith("OK")) throw new Exception($"{what} : {r}");
             return r.Length > 3 ? r[3..] : "";
         }
@@ -124,6 +124,8 @@ namespace FM27Scout
         public sealed class Context
         {
             public int Manager, Team, Assistant;
+            /// <summary>Contexte tiré de l'écran Entraînement (toujours ton équipe), pas du calendrier (qui peut être celui d'un autre club consulté).</summary>
+            public bool FromTraining;
             public string TeamTraining => $"825307168=128;1198877028=1;1348620377={Manager};1416914273={Team}";
             public string Calendar => $"825241632=1;825307168=9;1198877028=1;1214805357={Manager};1415930221={Team}";
             public string PlayerTraining(int person) => $"825307168=77;1198877028=1;1348620377={Manager};1348825715={person};1416196963=1";
@@ -132,7 +134,7 @@ namespace FM27Scout
 
         public static Context Ctx()
         {
-            string refs = Ok(Call("REFS"), "Références");
+            string refs = Ok(Call("REFS"), L.T("Références"));
             var map = new Dictionary<string, Dictionary<uint, int>>();
             foreach (var part in refs.Split(" | "))
             {
@@ -149,11 +151,12 @@ namespace FM27Scout
                 map[type] = d;
             }
             var c = new Context();
-            if (map.TryGetValue("FM.UI.CalendarReference", out var cal) && cal.ContainsKey(1214805357))
+            // l'entraînement n'existe que pour tes équipes ; le calendrier est le dernier consulté, parfois celui d'un autre club
+            if (map.TryGetValue("FM.UI.TeamTrainingReference", out var tt) && tt.GetValueOrDefault(1348620377u) != 0 && tt.GetValueOrDefault(1416914273u) != 0)
+            { c.Manager = tt[1348620377u]; c.Team = tt[1416914273u]; c.FromTraining = true; }
+            else if (map.TryGetValue("FM.UI.CalendarReference", out var cal) && cal.ContainsKey(1214805357))
             { c.Manager = cal[1214805357]; c.Team = cal.GetValueOrDefault(1415930221u); }
-            if ((c.Manager == 0 || c.Team == 0) && map.TryGetValue("FM.UI.TeamTrainingReference", out var tt))
-            { c.Manager = tt.GetValueOrDefault(1348620377u); c.Team = tt.GetValueOrDefault(1416914273u); }
-            if (c.Manager == 0 || c.Team == 0) throw new Exception("partie pas encore reconnue : ouvre une fois l'écran Entraînement dans FM");
+            if (c.Manager == 0 || c.Team == 0) throw new Exception(L.T("partie pas encore reconnue : ouvre une fois l'écran Entraînement dans FM"));
             return c;
         }
 
@@ -166,7 +169,7 @@ namespace FM27Scout
             for (int i = 0; i < reqs.Count; i += 60)
             {
                 var chunk = reqs.Skip(i).Take(60).ToList();
-                string r = Ok(Call("READ " + string.Join(";;", chunk.Select(q => $"FM.UI.{q.type}|{q.pairs}|{q.prop}")), 20000), "Lecture");
+                string r = Ok(Call("READ " + string.Join(";;", chunk.Select(q => $"FM.UI.{q.type}|{q.pairs}|{q.prop}")), 20000), L.T("Lecture"));
                 var parts = r.Split('\u001e');
                 for (int j = 0; j < chunk.Count; j++)
                 {
@@ -186,13 +189,13 @@ namespace FM27Scout
         // ------------------------------------------------------------------ écriture (ordres au moteur, comme les menus de FM)
 
         public static void Send(uint ev, string refType, string pairs, string json)
-            => Ok(Call($"SENDJ {ev} FM.UI.{refType} {pairs} {json}"), "Ordre " + ev);
+            => Ok(Call($"SENDJ {ev} FM.UI.{refType} {pairs} {json}"), L.F("Ordre {0}", ev));
 
         /// <summary>Écrit une valeur dans un canal de données (ce que fait l'interface quand on coche une case).</summary>
         public static void WriteChannel(string refType, string pairs, uint prop, string json)
-            => Ok(Call($"WRITE FM.UI.{refType}|{pairs}|{prop} {json}"), "Écriture");
+            => Ok(Call($"WRITE FM.UI.{refType}|{pairs}|{prop} {json}"), L.T("Écriture"));
 
-        public static void TeamIntensity(int row, int option) => Ok(Call($"TEAMINT {row} {option}"), "Intensité équipe");
+        public static void TeamIntensity(int row, int option) => Ok(Call($"TEAMINT {row} {option}"), L.T("Intensité équipe"));
 
         // ------------------------------------------------------------------ petits utilitaires JSON (format du module)
 
@@ -239,44 +242,83 @@ namespace FM27Scout
             foreach (var x in l.EnumerateArray()) if (x.ValueKind == JsonValueKind.Array && x.GetArrayLength() == 2) yield return x[1];
         }
 
-        /// <summary>Nom affiché par FM : chaîne « lien (base64) + nom » → nom complet tiré de l'infobulle, sinon le nom court.</summary>
+        // mots d'un lien de profil dans les langues de FM : « Cliquez pour voir le profil de : X », « Click to view … », « Clique para ver o perfil de: X »…
+        static readonly string[] ViewWords = { "pour voir ", "to view ", "para ver ", "per vedere " };
+        static readonly string[] ProfileWords = { "profile", "profil", "perfil", "profilo" };
+
+        /// <summary>Nom affiché par FM : chaîne « lien (base64) + nom » → nom complet tiré de l'infobulle, sinon le nom court. Toutes langues de FM.</summary>
         public static string DisplayName(string s)
         {
             if (string.IsNullOrEmpty(s)) return "";
             s = new string(s.Where(ch => ch >= ' ').ToArray()).Trim();
             // lien en clair : « …Cliquez pour voir <nom complet><nom court> »
-            int pv = s.LastIndexOf("pour voir ", StringComparison.Ordinal);
-            if (pv >= 0 && !s.Contains("profil de", StringComparison.Ordinal))
+            bool hasProfile = ProfileWords.Any(w => s.Contains(w, StringComparison.OrdinalIgnoreCase));
+            foreach (var vw in ViewWords)
             {
-                string rest = s[(pv + 10)..].Trim();
+                int pv = s.LastIndexOf(vw, StringComparison.OrdinalIgnoreCase);
+                if (pv < 0 || hasProfile) continue;
+                string rest = s[(pv + vw.Length)..].Trim();
                 for (int k = (rest.Length + 1) / 2; k < rest.Length; k++)
                     if (char.IsUpper(rest[k]) && rest[..k].Contains(rest[k..])) return rest[..k].Trim();
                 return rest;
             }
+            if (hasProfile && FromTip(s) is { } plain) return plain;
             for (int len = s.Length - s.Length % 4; len >= 8; len -= 4)
             {
                 try
                 {
                     var b = Convert.FromBase64String(s[..len]);
-                    var key = Encoding.UTF8.GetBytes("profil de");
-                    int q = IndexOf(b, key);
-                    if (q < 0) continue;
-                    // l'infobulle est une chaîne précédée de sa longueur (entier 32 bits)
-                    for (int k = q - 4; k >= Math.Max(0, q - 300); k--)
-                    {
-                        int L = BitConverter.ToInt32(b, k);
-                        if (L <= 0 || L > 400 || k + 4 + L > b.Length || q >= k + 4 + L) continue;
-                        string tip = Encoding.UTF8.GetString(b, k + 4, L);
-                        if (!tip.Contains("profil de") || tip.Any(ch => ch < ' ' && ch != ' ')) continue;
-                        int c = tip.IndexOf(':', tip.IndexOf("profil de", StringComparison.Ordinal));
-                        var name = c < 0 ? "" : tip[(c + 1)..].Trim().Trim(' ').Trim();
-                        if (name.Length > 1) return name;
-                    }
+                    foreach (var word in ProfileWords)
+                        foreach (var key in new[] { Encoding.UTF8.GetBytes(word), Encoding.UTF8.GetBytes(char.ToUpperInvariant(word[0]) + word[1..]) })
+                        {
+                            int q = IndexOf(b, key);
+                            if (q < 0) continue;
+                            // l'infobulle est une chaîne précédée de sa longueur (entier 32 bits)
+                            for (int k = q - 4; k >= Math.Max(0, q - 300); k--)
+                            {
+                                int L = BitConverter.ToInt32(b, k);
+                                if (L <= 0 || L > 400 || k + 4 + L > b.Length || q >= k + 4 + L) continue;
+                                string tip = Encoding.UTF8.GetString(b, k + 4, L);
+                                if (tip.Any(ch => ch < ' ' && ch != ' ')) continue;
+                                if (FromTip(tip) is { } name) return name;
+                            }
+                        }
                 }
                 catch { }
             }
             int eq = s.LastIndexOf('=');
+            // format inconnu (autre langue de FM ?) : noter un exemple une fois pour pouvoir l'ajouter
+            if (!s_nameLogged && s.Length > 40) { s_nameLogged = true; Log.Info("Nom FM sans infobulle reconnue : " + s[..Math.Min(s.Length, 400)]); }
             return eq >= 0 && eq < s.Length - 1 ? s[(eq + 1)..] : s;
+        }
+
+        static bool s_nameLogged;
+
+        /// <summary>Nom tiré d'une infobulle de profil : « …profil de : X » (fr), « …profile: X » / « View X's profile » (en), « …perfil de: X » (pt).</summary>
+        static string FromTip(string tip)
+        {
+            foreach (var w in ProfileWords)
+            {
+                int k = tip.IndexOf(w, StringComparison.OrdinalIgnoreCase);
+                if (k < 0) continue;
+                int c = tip.IndexOf(':', k);
+                if (c >= 0 && tip[(c + 1)..].Trim() is { Length: > 1 } afterColon) return afterColon;
+                // anglais : « View X's profile »
+                int ap = tip.IndexOf("'s " + w, StringComparison.OrdinalIgnoreCase);
+                if (ap < 0) ap = tip.IndexOf("’s " + w, StringComparison.OrdinalIgnoreCase);
+                if (ap > 0)
+                {
+                    string before = tip[..ap];
+                    int v = before.LastIndexOf("view ", StringComparison.OrdinalIgnoreCase);
+                    string n = (v >= 0 ? before[(v + 5)..] : before).Trim();
+                    if (n.Length > 1) return n;
+                }
+                // sans deux-points : « perfil de X », « profil de X », « profile of X »
+                foreach (var de in new[] { " de ", " do ", " da ", " of " })
+                    if (string.Compare(tip, k + w.Length, de, 0, de.Length, StringComparison.OrdinalIgnoreCase) == 0
+                        && tip[(k + w.Length + de.Length)..].Trim() is { Length: > 1 } n2) return n2;
+            }
+            return null;
         }
 
         static int IndexOf(byte[] hay, byte[] needle)

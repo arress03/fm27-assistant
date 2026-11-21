@@ -63,10 +63,10 @@ namespace FM27Scout
 
         public static void Install(string game, bool desktop, Action<string> progress)
         {
-            if (Process.GetProcessesByName("fm").Length > 0) throw new Exception("Football Manager 27 est lancé : ferme-le avant d'installer.");
+            if (Process.GetProcessesByName("fm").Length > 0) throw new Exception(L.T("Football Manager 27 est lancé : ferme-le avant d'installer."));
 
-            progress("Installation de BepInEx et de FM27 Bridge dans le jeu…");
-            using (var s = typeof(Setup).Assembly.GetManifestResourceStream("bepinex.zip") ?? throw new Exception("contenu d'installation manquant dans l'exe"))
+            progress(L.T("Installation de BepInEx et de FM27 Bridge dans le jeu…"));
+            using (var s = typeof(Setup).Assembly.GetManifestResourceStream("bepinex.zip") ?? throw new Exception(L.T("contenu d'installation manquant dans l'exe")))
             using (var zip = new ZipArchive(s))
             {
                 foreach (var e in zip.Entries)
@@ -88,13 +88,13 @@ namespace FM27Scout
                 File.WriteAllText(cfg, txt);
             }
 
-            progress("Installation de l'application…");
+            progress(L.T("Installation de l'application…"));
             Directory.CreateDirectory(InstallDir);
             string self = Environment.ProcessPath;
             if (!string.Equals(Path.GetFullPath(self), Path.GetFullPath(InstalledExe), StringComparison.OrdinalIgnoreCase))
                 File.Copy(self, InstalledExe, true);
 
-            progress("Raccourcis…");
+            progress(L.T("Raccourcis…"));
             string menu = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), AppName + ".lnk");
             Shortcut(menu, InstalledExe);
             if (desktop) Shortcut(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), AppName + ".lnk"), InstalledExe);
@@ -132,7 +132,7 @@ namespace FM27Scout
 
         public static void Uninstall()
         {
-            if (MessageBox.Show("Désinstaller FM27 Assistant ?\n\nFM27 Bridge sera retiré du jeu. BepInEx reste installé mais est désactivé (winhttp.dll retiré). Tes réglages dans %APPDATA%\\FM27Scout sont conservés.",
+            if (MessageBox.Show(L.T("Désinstaller FM27 Assistant ?\n\nFM27 Bridge sera retiré du jeu. BepInEx reste installé mais est désactivé (winhttp.dll retiré). Tes réglages dans %APPDATA%\\FM27Scout sont conservés."),
                 AppName, MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             string game = null;
             try { using var k = Registry.CurrentUser.OpenSubKey(UninstallKey); game = k?.GetValue("FM27Path") as string; } catch { }
@@ -151,7 +151,7 @@ namespace FM27Scout
                 Process.Start(new ProcessStartInfo("cmd.exe", $"/c timeout /t 2 /nobreak >nul & rmdir /s /q \"{InstallDir}\"") { CreateNoWindow = true, UseShellExecute = false });
             }
             catch { }
-            MessageBox.Show("FM27 Assistant a été désinstallé.", AppName);
+            MessageBox.Show(L.T("FM27 Assistant a été désinstallé."), AppName);
         }
 
         static void TryDelete(string f) { try { if (File.Exists(f)) File.Delete(f); } catch { } }
@@ -162,7 +162,7 @@ namespace FM27Scout
         {
             var w = new Window
             {
-                Title = AppName + " — installation", Width = 560, SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize,
+                Title = AppName + " — " + L.T("installation"), Width = 560, SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize,
                 WindowStartupLocation = WindowStartupLocation.CenterScreen, Background = Theme.Bg, Foreground = Theme.Text,
             };
             try { w.Icon = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/app.ico")); } catch { }
@@ -171,26 +171,26 @@ namespace FM27Scout
             title.Children.Add(new Image { Source = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/logo.png")), Width = 56, Height = 56, Margin = new Thickness(0, 0, 14, 0) });
             title.Children.Add(new TextBlock { Text = AppName, FontSize = 26, FontWeight = FontWeights.SemiBold, Foreground = Theme.Text, VerticalAlignment = VerticalAlignment.Center });
             root.Children.Add(title);
-            root.Children.Add(new TextBlock { Text = "Installe l'application et le module FM27 Bridge (BepInEx) dans Football Manager 27.", TextWrapping = TextWrapping.Wrap, Foreground = Theme.Dim, Margin = new Thickness(0, 6, 0, 18) });
+            root.Children.Add(new TextBlock { Text = L.T("Installe l'application et le module FM27 Bridge (BepInEx) dans Football Manager 27."), TextWrapping = TextWrapping.Wrap, Foreground = Theme.Dim, Margin = new Thickness(0, 6, 0, 18) });
 
-            root.Children.Add(new TextBlock { Text = "DOSSIER DE FOOTBALL MANAGER 27", FontSize = 11, FontWeight = FontWeights.SemiBold, Foreground = Theme.Faint });
+            root.Children.Add(new TextBlock { Text = L.T("DOSSIER DE FOOTBALL MANAGER 27"), FontSize = 11, FontWeight = FontWeights.SemiBold, Foreground = Theme.Faint });
             var pathRow = new DockPanel { Margin = new Thickness(0, 6, 0, 14) };
-            var browse = new Button { Content = "Parcourir…", Margin = new Thickness(8, 0, 0, 0) };
+            var browse = new Button { Content = L.T("Parcourir…"), Margin = new Thickness(8, 0, 0, 0) };
             DockPanel.SetDock(browse, Dock.Right); pathRow.Children.Add(browse);
             var path = new TextBox { Text = FindGame() ?? "", VerticalContentAlignment = VerticalAlignment.Center };
             pathRow.Children.Add(path);
             root.Children.Add(pathRow);
             browse.Click += (_, _) =>
             {
-                var d = new OpenFolderDialog { Title = "Dossier de Football Manager 27 (celui qui contient fm.exe)" };
+                var d = new OpenFolderDialog { Title = L.T("Dossier de Football Manager 27 (celui qui contient fm.exe)") };
                 if (d.ShowDialog(w) == true) path.Text = d.FolderName;
             };
 
-            var desk = new CheckBox { Content = "Créer un raccourci sur le bureau", IsChecked = true, Foreground = Theme.Text, Margin = new Thickness(0, 0, 0, 16) };
+            var desk = new CheckBox { Content = L.T("Créer un raccourci sur le bureau"), IsChecked = true, Foreground = Theme.Text, Margin = new Thickness(0, 0, 0, 16) };
             root.Children.Add(desk);
             var status = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Theme.Dim, Margin = new Thickness(0, 0, 0, 14) };
             root.Children.Add(status);
-            var go = new Button { Content = "Installer", HorizontalAlignment = HorizontalAlignment.Right, Padding = new Thickness(22, 8, 22, 8) };
+            var go = new Button { Content = L.T("Installer"), HorizontalAlignment = HorizontalAlignment.Right, Padding = new Thickness(22, 8, 22, 8) };
             if (Application.Current.Resources["Primary"] is Style ps) go.Style = ps;
             root.Children.Add(go);
             root.Children.Add(new TextBlock { Text = "dev by @arress03", Foreground = Theme.Faint, Opacity = 0.6, FontSize = 11, Margin = new Thickness(0, 14, 0, 0) });
@@ -206,19 +206,19 @@ namespace FM27Scout
                     return;
                 }
                 string game = path.Text.Trim();
-                if (!File.Exists(Path.Combine(game, "fm.exe"))) { status.Text = "Ce dossier ne contient pas fm.exe : choisis le dossier d'installation de Football Manager 27."; status.Foreground = Brushes.Orange; return; }
+                if (!File.Exists(Path.Combine(game, "fm.exe"))) { status.Text = L.T("Ce dossier ne contient pas fm.exe : choisis le dossier d'installation de Football Manager 27."); status.Foreground = Brushes.Orange; return; }
                 go.IsEnabled = false; browse.IsEnabled = false;
                 bool desktop = desk.IsChecked == true;
                 try
                 {
                     await Task.Run(() => Install(game, desktop, m => w.Dispatcher.Invoke(() => status.Text = m)));
                     status.Foreground = Theme.Text;
-                    status.Text = "Installation terminée. Au premier lancement de FM27, BepInEx prépare le jeu (1 à 2 minutes de plus que d'habitude), ensuite c'est instantané.";
-                    go.Content = "Lancer FM27 Assistant"; go.IsEnabled = true; installed = true;
+                    status.Text = L.T("Installation terminée. Au premier lancement de FM27, BepInEx prépare le jeu (1 à 2 minutes de plus que d'habitude), ensuite c'est instantané.");
+                    go.Content = L.T("Lancer FM27 Assistant"); go.IsEnabled = true; installed = true;
                 }
                 catch (Exception ex)
                 {
-                    status.Text = "Échec : " + ex.Message; status.Foreground = Brushes.Orange;
+                    status.Text = L.F("Échec : {0}", ex.Message); status.Foreground = Brushes.Orange;
                     go.IsEnabled = true; browse.IsEnabled = true;
                 }
             };

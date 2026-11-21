@@ -11,11 +11,12 @@ namespace FM27Scout
             DispatcherUnhandledException += (_, ev) =>
             {
                 Log.Warn("Erreur : " + ev.Exception);
-                MessageBox.Show("Erreur inattendue : " + ev.Exception.Message + "\n\nDétails dans %APPDATA%\\FM27Scout\\journal.txt",
+                MessageBox.Show(L.F("Erreur inattendue : {0}\n\nDétails dans %APPDATA%\\FM27Scout\\journal.txt", ev.Exception.Message),
                     "FM27 Assistant", MessageBoxButton.OK, MessageBoxImage.Warning);
                 ev.Handled = true;
             };
             Theme.Install(Resources);
+            L.Init();
             base.OnStartup(e);
             if (e.Args.Contains("--uninstall")) { Setup.Uninstall(); Shutdown(); return; }
             if (Setup.WantsSetup(e.Args)) { Setup.ShowWindow(); return; }
